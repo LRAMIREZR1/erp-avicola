@@ -1,84 +1,94 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { desactivarCliente } from "./actions";
+import { formatCLP } from "@/lib/format";
+import StatCard from "@/components/StatCard";
+import { NOMBRES_ESTADO, type EstadoPedido } from "@/lib/supabase/types";
 
-export default async function ClientesPage() {
+export default async function DashboardPage() {
   const supabase = await createClient();
-  const { data: clientes } = await supabase
-    .from("clientes")
-    .select("*")
-    .eq("activo", true)
-    .order("nombre");
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  const [pedidosHoy, pendientes, stockBajo, ultimosPedidos] = await Promise.all([
+    supabase.from("pedidos").select("total").eq("fecha_pedido", hoy).neq("estado", "cancelado"),
+    supabase
+      .from("pedidos")
+      .select("id", { count: "exact", head: true })
+      .in("estado", ["pendiente", "en_preparacion"]),
+    supabase
+      .from("productos")
+      .select("id, nombre, stock_actual, stock_minimo")
+      .eq("activo", true),
+    supabase
+      .from("pedidos")
+      .select("id, estado, total, fecha_pedido, clientes(nombre)")
+      .order("created_at", { ascending: false })
+      .limit(6),
+  ]);
+
+  const totalHoy = (pedidosHoy.data ?? []).reduce((acc, p) => acc + Number(p.total), 0);
+  const productosStockBajo = (stockBajo.data ?? []).filter(
+    (p) => p.stock_actual <= p.stock_minimo
+  );
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold text-stone-800">Clientes</h1>
-          <p className="text-sm text-stone-500">Clientes B2B y minoristas</p>
-        </div>
-        <Link
-          href="/admin/clientes/nuevo"
-          className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800"
-        >
-          + Nuevo cliente
-        </Link>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-lg font-semibold text-stone-800">Resumen</h1>
+        <p className="text-sm text-stone-500">Vista general del negocio hoy</p>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-stone-50 text-xs uppercase text-stone-500">
-            <tr>
-              <th className="px-4 py-3">Nombre</th>
-              <th className="px-4 py-3">Tipo</th>
-              <th className="px-4 py-3">Teléfono</th>
-              <th className="px-4 py-3">Zona de entrega</th>
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-stone-100">
-            {(clientes ?? []).map((c) => (
-              <tr key={c.id} className="hover:bg-stone-50">
-                <td className="px-4 py-3 font-medium text-stone-800">{c.nombre}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      c.tipo === "b2b"
-                        ? "bg-amber-100 text-amber-800"
-                        : "bg-stone-100 text-stone-700"
-                    }`}
-                  >
-                    {c.tipo === "b2b" ? "B2B" : "Minorista"}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-stone-600">{c.telefono ?? "—"}</td>
-                <td className="px-4 py-3 text-stone-600">{c.zona_entrega ?? "—"}</td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex justify-end gap-3">
-                    <Link
-                      href={`/admin/clientes/${c.id}`}
-                      className="text-amber-700 hover:underline"
-                    >
-                      Editar
-                    </Link>
-                    <form action={desactivarCliente.bind(null, c.id)}>
-                      <button type="submit" className="text-stone-400 hover:text-red-600">
-                        Desactivar
-                      </button>
-                    </form>
-                  </div>
-                </td>
-              </tr>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard label="Ventas de hoy" value={formatCLP(totalHoy)} hint={hoy} />
+        <StatCard
+          label="Pedidos pendientes"
+          value={pendientes.count ?? 0}
+          hint="Pendientes + en preparación"
+        />
+        <StatCard
+          label="Productos con stock bajo"
+          value={productosStockBajo.length}
+          tone={productosStockBajo.length > 0 ? "warning" : "default"}
+          hint={productosStockBajo.length > 0 ? "Revisar stock" : "Todo en orden"}
+        />
+      </div>
+
+      {productosStockBajo.length > 0 && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4">
+          <p className="mb-2 text-sm font-medium text-amber-800">Alertas de stock bajo</p>
+          <ul className="space-y-1 text-sm text-amber-800">
+            {productosStockBajo.map((p) => (
+              <li key={p.id}>
+                {p.nombre}: quedan {p.stock_actual} (mínimo {p.stock_minimo})
+              </li>
             ))}
-            {(clientes ?? []).length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-stone-400">
-                  Aún no hay clientes registrados
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+          </ul>
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-stone-200 bg-white p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-sm font-medium text-stone-700">Últimos pedidos</p>
+          <Link href="/admin/pedidos" className="text-sm text-amber-700 hover:underline">
+            Ver todos
+          </Link>
+        </div>
+        <div className="divide-y divide-stone-100">
+          {(ultimosPedidos.data ?? []).map((p) => (
+            <div key={p.id} className="flex items-center justify-between py-2 text-sm">
+              <span className="text-stone-700">
+                {(p as unknown as { clientes: { nombre: string } | null }).clientes?.nombre ??
+                  "Cliente"}
+              </span>
+              <span className="text-stone-500">
+                {NOMBRES_ESTADO[p.estado as EstadoPedido]}
+              </span>
+              <span className="font-medium text-stone-800">{formatCLP(Number(p.total))}</span>
+            </div>
+          ))}
+          {(ultimosPedidos.data ?? []).length === 0 && (
+            <p className="py-4 text-center text-sm text-stone-400">Aún no hay pedidos</p>
+          )}
+        </div>
       </div>
     </div>
   );
