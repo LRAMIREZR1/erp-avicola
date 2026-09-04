@@ -1,6 +1,7 @@
 # ERP Avícola Doña Idelia
 
 
+
 Panel interno de gestión: clientes, stock, productos y pedidos.
 
 Para poner esto en marcha (Supabase, GitHub, Vercel) sigue **[SETUP.md](./SETUP.md)** paso a paso.
