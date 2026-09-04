@@ -7,7 +7,7 @@ import {
   type Categoria,
   type Formato,
 } from "@/lib/supabase/types";
-import { ajustarStock, desactivarProducto } from "./actions";
+import { ajustarStock, desactivarProducto } from "@/app/admin/productos/actions";
 
 export default async function ProductosPage() {
   const supabase = await createClient();
