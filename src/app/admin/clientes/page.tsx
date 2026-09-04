@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { desactivarCliente } from "./actions";
+import { desactivarCliente } from "@/app/admin/clientes/actions";
 
 export default async function ClientesPage() {
   const supabase = await createClient();
