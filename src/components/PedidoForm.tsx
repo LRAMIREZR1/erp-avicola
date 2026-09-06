@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { crearPedido } from "@/app/admin/pedidos/actions";
+import { crearPedido, editarPedido } from "@/app/admin/pedidos/actions";
 import { formatCLP } from "@/lib/format";
 import type { Cliente, Producto } from "@/lib/supabase/types";
 
@@ -11,14 +11,31 @@ interface Linea {
   precio_unitario: number;
 }
 
+interface ValoresIniciales {
+  cliente_id: string;
+  fecha_entrega: string | null;
+  notas: string | null;
+  items: Linea[];
+}
+
 export default function PedidoForm({
   clientes,
   productos,
+  modo = "crear",
+  pedidoId,
+  valoresIniciales,
 }: {
   clientes: Cliente[];
   productos: Producto[];
+  modo?: "crear" | "editar";
+  pedidoId?: string;
+  valoresIniciales?: ValoresIniciales;
 }) {
-  const [lineas, setLineas] = useState<Linea[]>([{ producto_id: "", cantidad: 1, precio_unitario: 0 }]);
+  const [lineas, setLineas] = useState<Linea[]>(
+    valoresIniciales?.items.length
+      ? valoresIniciales.items
+      : [{ producto_id: "", cantidad: 1, precio_unitario: 0 }]
+  );
 
   const total = useMemo(
     () => lineas.reduce((acc, l) => acc + l.cantidad * l.precio_unitario, 0),
@@ -45,8 +62,10 @@ export default function PedidoForm({
     setLineas((prev) => prev.filter((_, i) => i !== index));
   }
 
+  const accion = modo === "editar" && pedidoId ? editarPedido.bind(null, pedidoId) : crearPedido;
+
   return (
-    <form action={crearPedido} className="max-w-2xl space-y-5">
+    <form action={accion} className="max-w-2xl space-y-5">
       <input type="hidden" name="items" value={JSON.stringify(lineas)} />
 
       <div>
@@ -54,6 +73,7 @@ export default function PedidoForm({
         <select
           name="cliente_id"
           required
+          defaultValue={valoresIniciales?.cliente_id ?? ""}
           className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
         >
           <option value="">Selecciona un cliente</option>
@@ -72,6 +92,7 @@ export default function PedidoForm({
         <input
           type="date"
           name="fecha_entrega"
+          defaultValue={valoresIniciales?.fecha_entrega ?? ""}
           className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
         />
       </div>
@@ -133,6 +154,7 @@ export default function PedidoForm({
         <textarea
           name="notas"
           rows={2}
+          defaultValue={valoresIniciales?.notas ?? ""}
           className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
         />
       </div>
@@ -141,7 +163,7 @@ export default function PedidoForm({
         type="submit"
         className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800"
       >
-        Crear pedido
+        {modo === "editar" ? "Guardar cambios" : "Crear pedido"}
       </button>
     </form>
   );
