@@ -26,6 +26,7 @@ export default async function PedidosPage({
   const filtros: { label: string; value?: EstadoPedido }[] = [
     { label: "Todos" },
     { label: "Pendientes", value: "pendiente" },
+    { label: "Confirmados", value: "confirmado" },
     { label: "En preparación", value: "en_preparacion" },
     { label: "Entregados", value: "entregado" },
     { label: "Cancelados", value: "cancelado" },
