@@ -66,6 +66,46 @@ export async function cambiarEstadoPedido(pedidoId: string, estado: EstadoPedido
   revalidatePath("/admin/productos");
 }
 
+export async function editarPedido(pedidoId: string, formData: FormData) {
+  "use server";
+  const supabase = await createClient();
+
+  const clienteId = String(formData.get("cliente_id"));
+  const fechaEntrega = (formData.get("fecha_entrega") as string) || null;
+  const notas = (formData.get("notas") as string) || null;
+  const itemsRaw = String(formData.get("items") ?? "[]");
+  const items: LineaPedido[] = JSON.parse(itemsRaw).filter(
+    (i: LineaPedido) => i.producto_id && i.cantidad > 0
+  );
+
+  if (!clienteId) throw new Error("Debes seleccionar un cliente");
+  if (items.length === 0) throw new Error("Agrega al menos un producto al pedido");
+
+  const { error: updateError } = await supabase
+    .from("pedidos")
+    .update({ cliente_id: clienteId, fecha_entrega: fechaEntrega, notas })
+    .eq("id", pedidoId);
+
+  if (updateError) {
+    throw new Error("No se pudo actualizar el pedido: " + updateError.message);
+  }
+
+  const { error: itemsError } = await supabase.rpc("editar_items_pedido", {
+    p_pedido_id: pedidoId,
+    p_items: items,
+  });
+
+  if (itemsError) {
+    throw new Error("No se pudieron actualizar los productos del pedido: " + itemsError.message);
+  }
+
+  revalidatePath("/admin/pedidos");
+  revalidatePath(`/admin/pedidos/${pedidoId}`);
+  revalidatePath("/admin");
+  revalidatePath("/admin/productos");
+  redirect(`/admin/pedidos/${pedidoId}`);
+}
+
 export async function borrarPedido(pedidoId: string) {
   "use server";
   const supabase = await createClient();
