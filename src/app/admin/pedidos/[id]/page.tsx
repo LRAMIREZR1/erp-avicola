@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatCLP, formatFecha } from "@/lib/format";
 import EstadoSelector from "@/components/EstadoSelector";
+import BorrarPedidoButton from "@/components/BorrarPedidoButton";
 
 export default async function DetallePedidoPage({
   params,
@@ -47,7 +48,10 @@ export default async function DetallePedidoPage({
             {formatFecha(pedido.fecha_pedido)} · Vendedor: {vendedor?.nombre ?? "—"}
           </p>
         </div>
-        <EstadoSelector pedidoId={pedido.id} estado={pedido.estado} />
+        <div className="flex items-center gap-3">
+          <EstadoSelector pedidoId={pedido.id} estado={pedido.estado} />
+          <BorrarPedidoButton pedidoId={pedido.id} />
+        </div>
       </div>
 
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
