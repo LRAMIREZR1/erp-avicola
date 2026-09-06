@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatCLP, formatFecha } from "@/lib/format";
 import EstadoSelector from "@/components/EstadoSelector";
+import BorrarPedidoButton from "@/components/BorrarPedidoButton";
 import type { EstadoPedido } from "@/lib/supabase/types";
 
 export default async function PedidosPage({
@@ -98,9 +99,15 @@ export default async function PedidosPage({
                   <EstadoSelector pedidoId={p.id} estado={p.estado} />
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <Link href={`/admin/pedidos/${p.id}`} className="text-amber-700 hover:underline">
-                    Ver
-                  </Link>
+                  <div className="flex items-center justify-end gap-3">
+                    <Link
+                      href={`/admin/pedidos/${p.id}`}
+                      className="text-amber-700 hover:underline"
+                    >
+                      Ver
+                    </Link>
+                    <BorrarPedidoButton pedidoId={p.id} />
+                  </div>
                 </td>
               </tr>
             ))}
