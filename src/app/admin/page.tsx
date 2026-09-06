@@ -2,7 +2,16 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatCLP } from "@/lib/format";
 import StatCard from "@/components/StatCard";
-import { NOMBRES_ESTADO, type EstadoPedido } from "@/lib/supabase/types";
+import {
+  NOMBRES_CATEGORIA,
+  NOMBRES_ESTADO,
+  NOMBRES_FORMATO,
+  type Categoria,
+  type EstadoPedido,
+  type Formato,
+} from "@/lib/supabase/types";
+
+export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -16,8 +25,10 @@ export default async function DashboardPage() {
       .in("estado", ["pendiente", "en_preparacion"]),
     supabase
       .from("productos")
-      .select("id, nombre, stock_actual, stock_minimo")
-      .eq("activo", true),
+      .select("id, nombre, categoria, formato, stock_actual, stock_minimo")
+      .eq("activo", true)
+      .order("categoria")
+      .order("formato"),
     supabase
       .from("pedidos")
       .select("id, estado, total, fecha_pedido, clientes(nombre)")
@@ -26,9 +37,8 @@ export default async function DashboardPage() {
   ]);
 
   const totalHoy = (pedidosHoy.data ?? []).reduce((acc, p) => acc + Number(p.total), 0);
-  const productosStockBajo = (stockBajo.data ?? []).filter(
-    (p) => p.stock_actual <= p.stock_minimo
-  );
+  const stockProductos = stockBajo.data ?? [];
+  const productosStockBajo = stockProductos.filter((p) => p.stock_actual <= p.stock_minimo);
 
   return (
     <div className="space-y-6">
@@ -64,6 +74,37 @@ export default async function DashboardPage() {
           </ul>
         </div>
       )}
+
+      <div className="rounded-2xl border border-stone-200 bg-white p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-sm font-medium text-stone-700">Stock disponible</p>
+          <Link href="/admin/productos" className="text-sm text-amber-700 hover:underline">
+            Gestionar
+          </Link>
+        </div>
+        <div className="divide-y divide-stone-100">
+          {stockProductos.map((p) => (
+            <div key={p.id} className="flex items-center justify-between py-2 text-sm">
+              <span className="text-stone-700">
+                {NOMBRES_CATEGORIA[p.categoria as Categoria]} —{" "}
+                {NOMBRES_FORMATO[p.formato as Formato]}
+              </span>
+              <span
+                className={
+                  p.stock_actual <= p.stock_minimo
+                    ? "font-semibold text-red-600"
+                    : "font-medium text-stone-800"
+                }
+              >
+                {p.stock_actual} disponibles
+              </span>
+            </div>
+          ))}
+          {stockProductos.length === 0 && (
+            <p className="py-4 text-center text-sm text-stone-400">Aún no hay productos</p>
+          )}
+        </div>
+      </div>
 
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
         <div className="mb-3 flex items-center justify-between">
