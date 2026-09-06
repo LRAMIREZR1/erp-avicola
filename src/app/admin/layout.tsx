@@ -21,7 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="min-h-screen bg-stone-50">
-      <header className="border-b border-stone-200 bg-white">
+      <header className="border-b border-stone-200 bg-white print:hidden">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <div>
             <p className="text-sm font-semibold text-stone-800">Avícola Doña Idelia</p>
@@ -37,7 +37,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </header>
 
       <div className="mx-auto flex max-w-6xl gap-6 px-4 py-6">
-        <aside className="w-52 shrink-0">
+        <aside className="w-52 shrink-0 print:hidden">
           <NavLinks />
         </aside>
         <main className="min-w-0 flex-1">{children}</main>
