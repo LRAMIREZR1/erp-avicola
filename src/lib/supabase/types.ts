@@ -1,7 +1,12 @@
 export type Categoria = "segunda" | "primera" | "extra" | "tercera";
 export type Formato = "bandeja_30" | "caja_120" | "caja_180";
 export type TipoCliente = "b2b" | "minorista";
-export type EstadoPedido = "pendiente" | "en_preparacion" | "entregado" | "cancelado";
+export type EstadoPedido =
+  | "pendiente"
+  | "confirmado"
+  | "en_preparacion"
+  | "entregado"
+  | "cancelado";
 
 export interface Vendedor {
   id: string;
@@ -83,6 +88,7 @@ export const NOMBRES_FORMATO: Record<Formato, string> = {
 
 export const NOMBRES_ESTADO: Record<EstadoPedido, string> = {
   pendiente: "Pendiente",
+  confirmado: "Confirmado",
   en_preparacion: "En preparación",
   entregado: "Entregado",
   cancelado: "Cancelado",
