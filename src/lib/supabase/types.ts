@@ -50,6 +50,8 @@ export interface Pedido {
   fecha_entrega: string | null;
   notas: string | null;
   total: number;
+  pagado: boolean;
+  fecha_pago: string | null;
   created_at: string;
 }
 
