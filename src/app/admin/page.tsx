@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatCLP } from "@/lib/format";
 import StatCard from "@/components/StatCard";
+import StockChart, { type StockChartDatum } from "@/components/StockChart";
 import {
   NOMBRES_CATEGORIA,
   NOMBRES_ESTADO,
@@ -40,6 +41,23 @@ export default async function DashboardPage() {
   const stockProductos = stockBajo.data ?? [];
   const productosStockBajo = stockProductos.filter((p) => p.stock_actual <= p.stock_minimo);
 
+  const stockPorCategoria = new Map<string, StockChartDatum>();
+  for (const p of stockProductos) {
+    const nombreCategoria = NOMBRES_CATEGORIA[p.categoria as Categoria];
+    const actual = stockPorCategoria.get(nombreCategoria) ?? {
+      categoria: nombreCategoria,
+      bandejas: 0,
+      cajas: 0,
+    };
+    if (p.formato === "bandeja_30") {
+      actual.bandejas += p.stock_actual;
+    } else {
+      actual.cajas += p.stock_actual;
+    }
+    stockPorCategoria.set(nombreCategoria, actual);
+  }
+  const datosGrafico = [...stockPorCategoria.values()];
+
   return (
     <div className="space-y-6">
       <div>
@@ -77,15 +95,21 @@ export default async function DashboardPage() {
 
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
         <div className="mb-3 flex items-center justify-between">
-          <p className="text-sm font-medium text-stone-700">Stock disponible</p>
+          <p className="text-sm font-medium text-stone-700">Stock disponible por categoría</p>
           <Link href="/admin/productos" className="text-sm text-amber-700 hover:underline">
             Gestionar
           </Link>
         </div>
-        <div className="divide-y divide-stone-100">
+        {datosGrafico.length > 0 ? (
+          <StockChart data={datosGrafico} />
+        ) : (
+          <p className="py-4 text-center text-sm text-stone-400">Aún no hay productos</p>
+        )}
+
+        <div className="mt-4 divide-y divide-stone-100 border-t border-stone-100 pt-2">
           {stockProductos.map((p) => (
-            <div key={p.id} className="flex items-center justify-between py-2 text-sm">
-              <span className="text-stone-700">
+            <div key={p.id} className="flex items-center justify-between py-1.5 text-xs">
+              <span className="text-stone-600">
                 {NOMBRES_CATEGORIA[p.categoria as Categoria]} —{" "}
                 {NOMBRES_FORMATO[p.formato as Formato]}
               </span>
@@ -93,16 +117,13 @@ export default async function DashboardPage() {
                 className={
                   p.stock_actual <= p.stock_minimo
                     ? "font-semibold text-red-600"
-                    : "font-medium text-stone-800"
+                    : "font-medium text-stone-700"
                 }
               >
                 {p.stock_actual} disponibles
               </span>
             </div>
           ))}
-          {stockProductos.length === 0 && (
-            <p className="py-4 text-center text-sm text-stone-400">Aún no hay productos</p>
-          )}
         </div>
       </div>
 
