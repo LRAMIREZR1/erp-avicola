@@ -27,6 +27,12 @@ export default function StockChart({ data }: { data: StockChartDatum[] }) {
 
   const maxValor = Math.max(1, ...data.map((d) => Math.max(d.bandejas, d.cajas)));
   const niceMax = nicerMax(maxValor);
+  const totalBandejas = data.reduce((acc, d) => acc + d.bandejas, 0);
+  const totalCajas = data.reduce((acc, d) => acc + d.cajas, 0);
+  const totalPorSerie: Record<"bandejas" | "cajas", number> = {
+    bandejas: totalBandejas,
+    cajas: totalCajas,
+  };
   const ticks = [0, niceMax * 0.25, niceMax * 0.5, niceMax * 0.75, niceMax];
 
   const width = 560;
@@ -47,7 +53,7 @@ export default function StockChart({ data }: { data: StockChartDatum[] }) {
 
   return (
     <div>
-      <div className="mb-3 flex items-center gap-4">
+      <div className="mb-3 flex flex-wrap items-center gap-4">
         {SERIES.map((s) => (
           <div key={s.key} className="flex items-center gap-1.5 text-xs text-stone-600">
             <span
@@ -55,6 +61,9 @@ export default function StockChart({ data }: { data: StockChartDatum[] }) {
               style={{ backgroundColor: s.color }}
             />
             {s.label}
+            <span className="font-semibold text-stone-800">
+              {totalPorSerie[s.key]} disponibles
+            </span>
           </div>
         ))}
       </div>
