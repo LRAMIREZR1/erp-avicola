@@ -1,0 +1,42 @@
+import { notFound } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import PedidoForm from "@/components/PedidoForm";
+
+export default async function EditarPedidoPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const supabase = await createClient();
+
+  const [pedidoRes, itemsRes, clientesRes, productosRes] = await Promise.all([
+    supabase.from("pedidos").select("id, cliente_id, fecha_entrega, notas").eq("id", id).single(),
+    supabase
+      .from("pedido_items")
+      .select("producto_id, cantidad, precio_unitario")
+      .eq("pedido_id", id),
+    supabase.from("clientes").select("*").eq("activo", true).order("nombre"),
+    supabase.from("productos").select("*").eq("activo", true).order("categoria"),
+  ]);
+
+  if (!pedidoRes.data) notFound();
+
+  return (
+    <div className="space-y-4">
+      <h1 className="text-lg font-semibold text-stone-800">Editar pedido</h1>
+      <PedidoForm
+        clientes={clientesRes.data ?? []}
+        productos={productosRes.data ?? []}
+        modo="editar"
+        pedidoId={id}
+        valoresIniciales={{
+          cliente_id: pedidoRes.data.cliente_id,
+          fecha_entrega: pedidoRes.data.fecha_entrega,
+          notas: pedidoRes.data.notas,
+          items: itemsRes.data ?? [],
+        }}
+      />
+    </div>
+  );
+}
