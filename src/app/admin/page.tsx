@@ -6,10 +6,8 @@ import StockChart, { type StockChartDatum } from "@/components/StockChart";
 import {
   NOMBRES_CATEGORIA,
   NOMBRES_ESTADO,
-  NOMBRES_FORMATO,
   type Categoria,
   type EstadoPedido,
-  type Formato,
 } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
@@ -105,26 +103,6 @@ export default async function DashboardPage() {
         ) : (
           <p className="py-4 text-center text-sm text-stone-400">Aún no hay productos</p>
         )}
-
-        <div className="mt-4 divide-y divide-stone-100 border-t border-stone-100 pt-2">
-          {stockProductos.map((p) => (
-            <div key={p.id} className="flex items-center justify-between py-1.5 text-xs">
-              <span className="text-stone-600">
-                {NOMBRES_CATEGORIA[p.categoria as Categoria]} —{" "}
-                {NOMBRES_FORMATO[p.formato as Formato]}
-              </span>
-              <span
-                className={
-                  p.stock_actual <= p.stock_minimo
-                    ? "font-semibold text-red-600"
-                    : "font-medium text-stone-700"
-                }
-              >
-                {p.stock_actual} disponibles
-              </span>
-            </div>
-          ))}
-        </div>
       </div>
 
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
