@@ -106,6 +106,12 @@ export default async function PedidosPage({
                     >
                       Ver
                     </Link>
+                    <Link
+                      href={`/admin/pedidos/${p.id}/editar`}
+                      className="text-amber-700 hover:underline"
+                    >
+                      Editar
+                    </Link>
                     <BorrarPedidoButton pedidoId={p.id} />
                   </div>
                 </td>
