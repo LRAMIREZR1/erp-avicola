@@ -16,6 +16,7 @@ export default async function PedidosPage({
   let query = supabase
     .from("pedidos")
     .select("id, estado, total, fecha_pedido, fecha_entrega, clientes(nombre), vendedores(nombre)")
+    .eq("origen", "pedido")
     .order("created_at", { ascending: false });
 
   if (estado) {
