@@ -65,3 +65,18 @@ export async function cambiarEstadoPedido(pedidoId: string, estado: EstadoPedido
   revalidatePath("/admin");
   revalidatePath("/admin/productos");
 }
+
+export async function borrarPedido(pedidoId: string) {
+  "use server";
+  const supabase = await createClient();
+  const { error } = await supabase.from("pedidos").delete().eq("id", pedidoId);
+
+  if (error) {
+    throw new Error("No se pudo borrar el pedido: " + error.message);
+  }
+
+  revalidatePath("/admin/pedidos");
+  revalidatePath("/admin");
+  revalidatePath("/admin/productos");
+  redirect("/admin/pedidos");
+}
