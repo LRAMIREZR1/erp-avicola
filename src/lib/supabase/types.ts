@@ -41,6 +41,8 @@ export interface Producto {
   created_at: string;
 }
 
+export type OrigenPedido = "pedido" | "venta_directa";
+
 export interface Pedido {
   id: string;
   cliente_id: string;
@@ -52,6 +54,7 @@ export interface Pedido {
   total: number;
   pagado: boolean;
   fecha_pago: string | null;
+  origen: OrigenPedido;
   created_at: string;
 }
 
