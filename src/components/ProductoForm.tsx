@@ -1,6 +1,7 @@
 import type { Producto } from "@/lib/supabase/types";
 import { guardarProducto } from "@/app/admin/productos/actions";
 
+
 export default function ProductoForm({ producto }: { producto?: Producto }) {
   return (
     <form action={guardarProducto} className="max-w-lg space-y-4">
