@@ -8,6 +8,8 @@ export default async function NuevaVentaDirectaPage() {
     supabase.from("productos").select("*").eq("activo", true).order("categoria"),
   ]);
 
+  const clienteMostrador = (clientes.data ?? []).find((c) => c.nombre === "Cliente Mostrador");
+
   return (
     <div className="space-y-4">
       <div>
@@ -16,7 +18,11 @@ export default async function NuevaVentaDirectaPage() {
           Para ventas al contado que salen de inmediato — descuenta el stock apenas se registra
         </p>
       </div>
-      <VentaDirectaForm clientes={clientes.data ?? []} productos={productos.data ?? []} />
+      <VentaDirectaForm
+        clientes={clientes.data ?? []}
+        productos={productos.data ?? []}
+        clienteMostradorId={clienteMostrador?.id}
+      />
     </div>
   );
 }
