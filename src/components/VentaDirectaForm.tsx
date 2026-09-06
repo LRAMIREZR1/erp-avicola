@@ -14,9 +14,11 @@ interface Linea {
 export default function VentaDirectaForm({
   clientes,
   productos,
+  clienteMostradorId,
 }: {
   clientes: Cliente[];
   productos: Producto[];
+  clienteMostradorId?: string;
 }) {
   const [lineas, setLineas] = useState<Linea[]>([
     { producto_id: "", cantidad: 1, precio_unitario: 0 },
@@ -56,6 +58,7 @@ export default function VentaDirectaForm({
         <select
           name="cliente_id"
           required
+          defaultValue={clienteMostradorId ?? ""}
           className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
         >
           <option value="">Selecciona un cliente</option>
@@ -66,8 +69,9 @@ export default function VentaDirectaForm({
           ))}
         </select>
         <p className="mt-1 text-xs text-stone-400">
-          ¿Es alguien que no está registrado? Créalo primero en Clientes — puede ser algo genérico
-          como &quot;Venta mostrador&quot;.
+          {clienteMostradorId
+            ? "Viene preseleccionado \"Cliente Mostrador\" para ventas al paso sin datos registrados — cámbialo si corresponde a un cliente real."
+            : "¿Es alguien que no está registrado? Créalo primero en Clientes."}
         </p>
       </div>
 
