@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatCLP, formatFecha } from "@/lib/format";
@@ -50,6 +51,12 @@ export default async function DetallePedidoPage({
         </div>
         <div className="flex items-center gap-3">
           <EstadoSelector pedidoId={pedido.id} estado={pedido.estado} />
+          <Link
+            href={`/admin/pedidos/${pedido.id}/editar`}
+            className="text-xs font-medium text-amber-700 hover:underline"
+          >
+            Editar
+          </Link>
           <BorrarPedidoButton pedidoId={pedido.id} />
         </div>
       </div>
