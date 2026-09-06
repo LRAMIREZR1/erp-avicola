@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatCLP, formatFecha } from "@/lib/format";
 import EstadoSelector from "@/components/EstadoSelector";
 import BorrarPedidoButton from "@/components/BorrarPedidoButton";
+import EstadoPagoToggle from "@/components/EstadoPagoToggle";
 
 export default async function DetallePedidoPage({
   params,
@@ -16,7 +17,7 @@ export default async function DetallePedidoPage({
   const { data: pedido } = await supabase
     .from("pedidos")
     .select(
-      "id, estado, total, fecha_pedido, fecha_entrega, notas, clientes(nombre, telefono, direccion, zona_entrega), vendedores(nombre)"
+      "id, estado, total, fecha_pedido, fecha_entrega, notas, pagado, fecha_pago, clientes(nombre, telefono, direccion, zona_entrega), vendedores(nombre)"
     )
     .eq("id", id)
     .single();
@@ -60,6 +61,20 @@ export default async function DetallePedidoPage({
           <BorrarPedidoButton pedidoId={pedido.id} />
         </div>
       </div>
+
+      {pedido.estado === "entregado" && (
+        <div className="flex items-center justify-between rounded-2xl border border-stone-200 bg-white p-4">
+          <div>
+            <p className="text-sm font-medium text-stone-700">Cobro</p>
+            <p className="text-xs text-stone-500">
+              {pedido.pagado && pedido.fecha_pago
+                ? `Pagado el ${formatFecha(pedido.fecha_pago)}`
+                : "Aún no se ha registrado el pago"}
+            </p>
+          </div>
+          <EstadoPagoToggle pedidoId={pedido.id} pagado={pedido.pagado} />
+        </div>
+      )}
 
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
         <p className="mb-2 text-sm font-medium text-stone-700">Cliente</p>
