@@ -1,4 +1,4 @@
-export type Categoria = "segunda" | "primera" | "extra";
+export type Categoria = "segunda" | "primera" | "extra" | "tercera";
 export type Formato = "bandeja_30" | "caja_120" | "caja_180";
 export type TipoCliente = "b2b" | "minorista";
 export type EstadoPedido = "pendiente" | "en_preparacion" | "entregado" | "cancelado";
@@ -72,6 +72,7 @@ export const NOMBRES_CATEGORIA: Record<Categoria, string> = {
   segunda: "Segunda",
   primera: "Primera",
   extra: "Extra",
+  tercera: "Tercera",
 };
 
 export const NOMBRES_FORMATO: Record<Formato, string> = {
