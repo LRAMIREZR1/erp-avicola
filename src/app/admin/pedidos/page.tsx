@@ -29,6 +29,18 @@ const ESTADOS_EN_ORDEN: EstadoPedido[] = [
   "cancelado",
 ];
 
+// Fondo por sección cuando la vista está agrupada por estado — mismos tonos
+// que EstadoBadge, para que se reconozca el grupo de un vistazo: el
+// encabezado usa el color más saturado y las filas el mismo tono suave.
+const FONDO_GRUPO: Record<EstadoPedido, { header: string; fila: string }> = {
+  pendiente: { header: "bg-stone-100 text-stone-700", fila: "bg-stone-50" },
+  confirmado: { header: "bg-indigo-100 text-indigo-700", fila: "bg-indigo-50" },
+  en_preparacion: { header: "bg-blue-100 text-blue-700", fila: "bg-blue-50" },
+  entregado: { header: "bg-green-100 text-green-700", fila: "bg-green-50" },
+  cancelado: { header: "bg-red-100 text-red-700", fila: "bg-red-50" },
+  eliminado: { header: "bg-stone-700 text-white", fila: "bg-stone-100" },
+};
+
 interface Fila {
   id: string;
   estado: EstadoPedido;
@@ -90,9 +102,12 @@ export default async function PedidosPage({
     { label: "Eliminados", value: "eliminado" },
   ];
 
-  function filaPedido(p: Fila) {
+  function filaPedido(p: Fila, fondoFila?: string) {
     return (
-      <tr key={p.id} className="hover:bg-stone-50">
+      <tr
+        key={p.id}
+        className={fondoFila ? `${fondoFila} hover:brightness-95` : "hover:bg-stone-50"}
+      >
         <td className="px-4 py-3 font-medium text-stone-800">{p.clientes?.nombre ?? "—"}</td>
         <td className="px-4 py-3 text-stone-600">{p.vendedores?.nombre ?? "—"}</td>
         <td className="px-4 py-3 text-stone-600">{formatFecha(p.fecha_pedido)}</td>
@@ -201,15 +216,15 @@ export default async function PedidosPage({
                   if (grupo.length === 0) return null;
                   return (
                     <Fragment key={est}>
-                      <tr className="bg-stone-50">
+                      <tr className={FONDO_GRUPO[est].header}>
                         <td
                           colSpan={7}
-                          className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-stone-500"
+                          className="px-4 py-2 text-xs font-semibold uppercase tracking-wide"
                         >
                           {NOMBRES_ESTADO[est]} ({grupo.length})
                         </td>
                       </tr>
-                      {grupo.map((p) => filaPedido(p))}
+                      {grupo.map((p) => filaPedido(p, FONDO_GRUPO[est].fila))}
                     </Fragment>
                   );
                 })
