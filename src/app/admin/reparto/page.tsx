@@ -54,7 +54,7 @@ function TablaConsolidado({ items }: { items: ItemConsolidado[] }) {
     return <p className="py-4 text-center text-sm text-stone-400">Nada de esto en esta carga</p>;
   }
   return (
-    <div className="overflow-hidden rounded-xl border border-stone-200">
+    <div className="overflow-hidden rounded-xl border border-stone-200 print:border-stone-500">
       <table className="w-full text-left text-sm">
         <thead className="bg-stone-200 text-xs font-semibold uppercase tracking-wide text-stone-600">
           <tr>
@@ -65,7 +65,7 @@ function TablaConsolidado({ items }: { items: ItemConsolidado[] }) {
             <th className="px-4 py-2 text-right">Cantidad a cargar</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-stone-100">
+        <tbody className="divide-y divide-stone-100 print:divide-stone-400">
           {items.map((item) => (
             <tr key={item.producto_id}>
               <td className="px-3 py-2 text-center text-stone-400">☐</td>
@@ -166,12 +166,12 @@ export default async function RepartoPage() {
       </div>
 
       {lista.length === 0 ? (
-        <div className="rounded-2xl border border-stone-200 bg-white p-8 text-center text-stone-400">
+        <div className="rounded-2xl border border-stone-200 print:border-stone-500 bg-white p-8 text-center text-stone-400">
           No hay pedidos en preparación en este momento
         </div>
       ) : (
         <>
-          <div className="break-inside-avoid rounded-2xl border border-stone-200 bg-white p-4">
+          <div className="break-inside-avoid rounded-2xl border border-stone-200 print:border-stone-500 bg-white p-4">
             <p className="mb-3 text-sm font-medium text-stone-700">
               Resumen de carga ({lista.length} pedido{lista.length === 1 ? "" : "s"})
             </p>
@@ -193,7 +193,7 @@ export default async function RepartoPage() {
 
           {rol !== "encargado_bodega" && (
             <div className="space-y-4">
-              <div className="break-inside-avoid overflow-hidden rounded-2xl border border-stone-200 bg-white">
+              <div className="break-inside-avoid overflow-hidden rounded-2xl border border-stone-200 print:border-stone-500 bg-white">
                 <div className="p-4 pb-3">
                   <p className="text-sm font-medium text-stone-700">
                     Ruta del día ({listaRuta.length} parada{listaRuta.length === 1 ? "" : "s"})
@@ -209,7 +209,7 @@ export default async function RepartoPage() {
                       <th className="px-4 py-2 text-right">Cobrar</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-stone-100">
+                  <tbody className="divide-y divide-stone-100 print:divide-stone-400">
                     {listaRuta.map((p, i) => (
                       <tr key={p.id}>
                         <td className="px-4 py-2 font-semibold text-stone-800">{i + 1}</td>
@@ -235,7 +235,7 @@ export default async function RepartoPage() {
                     ))}
                   </tbody>
                   <tfoot>
-                    <tr className="border-t border-stone-200 bg-stone-50">
+                    <tr className="border-t border-stone-200 print:border-stone-500 bg-stone-50">
                       <td colSpan={4} className="px-4 py-2 text-right font-medium text-stone-600">
                         Total a cobrar en la ruta
                       </td>
@@ -276,7 +276,7 @@ export default async function RepartoPage() {
                         {zonaActual || "Sin zona asignada"}
                       </p>
                     )}
-                    <div className="break-inside-avoid rounded-2xl border border-stone-200 bg-white p-4">
+                    <div className="break-inside-avoid rounded-2xl border border-stone-200 print:border-stone-500 bg-white p-4">
                       <div className="flex items-start justify-between">
                         <div>
                           <p className="flex items-center gap-2 font-medium text-stone-800">
@@ -336,7 +336,7 @@ export default async function RepartoPage() {
                         </div>
                       </div>
 
-                      <div className="mt-3 grid grid-cols-1 gap-3 border-t border-stone-100 pt-3 sm:grid-cols-2">
+                      <div className="mt-3 grid grid-cols-1 gap-3 border-t border-stone-100 print:border-stone-400 pt-3 sm:grid-cols-2">
                         <div>
                           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-stone-400">
                             Cajas
@@ -372,11 +372,6 @@ export default async function RepartoPage() {
                       </div>
 
                       {p.notas && <p className="mt-2 text-xs text-stone-500">Nota: {p.notas}</p>}
-
-                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-stone-100 pt-2 text-xs text-stone-500">
-                        <span>Recibido por: ____________________________</span>
-                        <span>Firma: ____________________________</span>
-                      </div>
                     </div>
                   </div>
                 );
