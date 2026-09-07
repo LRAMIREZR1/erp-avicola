@@ -21,3 +21,14 @@ export function hoyChile(): string {
     day: "2-digit",
   }).format(new Date());
 }
+
+// Fecha y hora en la zona horaria de Chile, para timestamps guardados en UTC
+// (como created_at). Mismo motivo que hoyChile(): sin especificar timeZone,
+// el servidor (que corre en UTC) muestra la hora UTC en vez de la de Chile.
+export function formatFechaHora(fechaIso: string): string {
+  return new Intl.DateTimeFormat("es-CL", {
+    timeZone: "America/Santiago",
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(fechaIso));
+}
