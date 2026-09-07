@@ -205,7 +205,7 @@ export default async function RepartoPage() {
                     <div className="flex items-center gap-3 print:hidden">
                       {rol === "repartidor" ? (
                         <MarcarEntregadoButton pedidoId={p.id} />
-                      ) : (
+                      ) : rol === "administrador" ? (
                         <>
                           <EstadoSelector pedidoId={p.id} estado="en_preparacion" />
                           <Link
@@ -215,6 +215,13 @@ export default async function RepartoPage() {
                             Ver
                           </Link>
                         </>
+                      ) : (
+                        <Link
+                          href={`/admin/pedidos/${p.id}`}
+                          className="text-sm text-amber-700 hover:underline"
+                        >
+                          Ver
+                        </Link>
                       )}
                     </div>
                   </div>
