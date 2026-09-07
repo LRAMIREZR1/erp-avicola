@@ -6,7 +6,7 @@ import { requireRol } from "@/lib/roles";
 export const dynamic = "force-dynamic";
 
 export default async function VentasPage() {
-  await requireRol(["administrador", "vendedor"]);
+  await requireRol(["administrador"]);
   const supabase = await createClient();
   const { data: ventas } = await supabase
     .from("pedidos")
