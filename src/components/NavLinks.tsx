@@ -63,9 +63,16 @@ export default function NavLinks({ rol }: { rol: Rol }) {
         if (links.length === 0) return null;
 
         return (
-          <div key={seccion.titulo ?? `seccion-${i}`} className="flex flex-col gap-1">
+          <div
+            key={seccion.titulo ?? `seccion-${i}`}
+            className={
+              seccion.titulo
+                ? "flex flex-col gap-1 rounded-xl border border-stone-200 bg-stone-50 p-2"
+                : "flex flex-col gap-1"
+            }
+          >
             {seccion.titulo && (
-              <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-stone-400">
+              <p className="px-1 pb-1 text-xs font-bold uppercase tracking-wide text-stone-500">
                 {seccion.titulo}
               </p>
             )}
