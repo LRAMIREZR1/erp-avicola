@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { desactivarCliente } from "@/app/admin/clientes/actions";
+import { requireRol } from "@/lib/roles";
 
 export default async function ClientesPage() {
+  await requireRol(["administrador", "vendedor"]);
   const supabase = await createClient();
   const { data: clientes } = await supabase
     .from("clientes")

@@ -1,12 +1,14 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import PedidoForm from "@/components/PedidoForm";
+import { requireRol } from "@/lib/roles";
 
 export default async function EditarPedidoPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requireRol(["administrador", "vendedor"]);
   const { id } = await params;
   const supabase = await createClient();
 

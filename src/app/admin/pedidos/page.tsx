@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatCLP, formatFecha } from "@/lib/format";
 import EstadoSelector from "@/components/EstadoSelector";
 import BorrarPedidoButton from "@/components/BorrarPedidoButton";
+import { requireRol } from "@/lib/roles";
 import type { EstadoPedido } from "@/lib/supabase/types";
 
 export default async function PedidosPage({
@@ -10,6 +11,7 @@ export default async function PedidosPage({
 }: {
   searchParams: Promise<{ estado?: string }>;
 }) {
+  const rol = await requireRol(["administrador", "vendedor"]);
   const { estado } = await searchParams;
   const supabase = await createClient();
 
@@ -113,7 +115,7 @@ export default async function PedidosPage({
                     >
                       Editar
                     </Link>
-                    <BorrarPedidoButton pedidoId={p.id} />
+                    {rol === "administrador" && <BorrarPedidoButton pedidoId={p.id} />}
                   </div>
                 </td>
               </tr>

@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatCLP, formatFecha, hoyChile } from "@/lib/format";
+import { requireRol } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
 export default async function VentasPage() {
+  await requireRol(["administrador", "vendedor"]);
   const supabase = await createClient();
   const { data: ventas } = await supabase
     .from("pedidos")

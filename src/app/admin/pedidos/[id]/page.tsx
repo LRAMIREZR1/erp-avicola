@@ -5,12 +5,14 @@ import { formatCLP, formatFecha } from "@/lib/format";
 import EstadoSelector from "@/components/EstadoSelector";
 import BorrarPedidoButton from "@/components/BorrarPedidoButton";
 import EstadoPagoToggle from "@/components/EstadoPagoToggle";
+import { requireRol } from "@/lib/roles";
 
 export default async function DetallePedidoPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const rol = await requireRol(["administrador", "vendedor"]);
   const { id } = await params;
   const supabase = await createClient();
 
@@ -65,7 +67,7 @@ export default async function DetallePedidoPage({
           >
             Editar
           </Link>
-          <BorrarPedidoButton pedidoId={pedido.id} />
+          {rol === "administrador" && <BorrarPedidoButton pedidoId={pedido.id} />}
         </div>
       </div>
 

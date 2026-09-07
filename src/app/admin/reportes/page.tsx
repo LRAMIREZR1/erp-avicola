@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { formatCLP } from "@/lib/format";
 import StatCard from "@/components/StatCard";
+import { requireRol } from "@/lib/roles";
 
 function primerDiaDelMes() {
   const d = new Date();
@@ -16,6 +17,7 @@ export default async function ReportesPage({
 }: {
   searchParams: Promise<{ desde?: string; hasta?: string }>;
 }) {
+  await requireRol(["administrador"]);
   const params = await searchParams;
   const desde = params.desde || primerDiaDelMes();
   const hasta = params.hasta || hoy();

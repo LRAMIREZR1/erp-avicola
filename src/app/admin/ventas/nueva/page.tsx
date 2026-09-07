@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import VentaDirectaForm from "@/components/VentaDirectaForm";
+import { requireRol } from "@/lib/roles";
 
 export default async function NuevaVentaDirectaPage() {
+  await requireRol(["administrador", "vendedor"]);
   const supabase = await createClient();
   const [clientes, productos] = await Promise.all([
     supabase.from("clientes").select("*").eq("activo", true).order("nombre"),

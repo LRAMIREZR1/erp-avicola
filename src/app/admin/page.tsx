@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatCLP, hoyChile } from "@/lib/format";
 import StatCard from "@/components/StatCard";
 import StockChart, { type StockChartDatum } from "@/components/StockChart";
+import { requireRol } from "@/lib/roles";
 import {
   NOMBRES_CATEGORIA,
   NOMBRES_ESTADO,
@@ -13,6 +14,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  await requireRol(["administrador", "vendedor"]);
   const supabase = await createClient();
   const hoy = hoyChile();
 

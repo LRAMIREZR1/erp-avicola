@@ -8,10 +8,20 @@ export type EstadoPedido =
   | "entregado"
   | "cancelado";
 
+export type Rol = "administrador" | "vendedor" | "encargado_bodega" | "repartidor";
+
+export const NOMBRES_ROL: Record<Rol, string> = {
+  administrador: "Administrador",
+  vendedor: "Vendedor",
+  encargado_bodega: "Encargado de bodega",
+  repartidor: "Repartidor",
+};
+
 export interface Vendedor {
   id: string;
   nombre: string;
   whatsapp: string | null;
+  rol: Rol;
   activo: boolean;
   created_at: string;
 }

@@ -1,12 +1,14 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import ProductoForm from "@/components/ProductoForm";
+import { requireRol } from "@/lib/roles";
 
 export default async function EditarProductoPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requireRol(["administrador"]);
   const { id } = await params;
   const supabase = await createClient();
   const { data: producto } = await supabase.from("productos").select("*").eq("id", id).single();

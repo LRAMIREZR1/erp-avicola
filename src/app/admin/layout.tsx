@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import NavLinks from "@/components/NavLinks";
 import LogoutButton from "@/components/LogoutButton";
+import { NOMBRES_ROL, type Rol } from "@/lib/supabase/types";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -15,9 +16,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const { data: vendedor } = await supabase
     .from("vendedores")
-    .select("nombre")
+    .select("nombre, rol")
     .eq("id", user.id)
     .single();
+
+  const rol = (vendedor?.rol as Rol | undefined) ?? "vendedor";
 
   return (
     <div className="min-h-screen bg-stone-50">
@@ -30,6 +33,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <div className="flex items-center gap-3">
             <span className="text-sm text-stone-600">
               {vendedor?.nombre ?? user.email}
+              <span className="ml-1.5 text-xs text-stone-400">({NOMBRES_ROL[rol]})</span>
             </span>
             <LogoutButton />
           </div>
@@ -38,7 +42,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
       <div className="mx-auto flex max-w-6xl gap-6 px-4 py-6">
         <aside className="w-52 shrink-0 print:hidden">
-          <NavLinks />
+          <NavLinks rol={rol} />
         </aside>
         <main className="min-w-0 flex-1">{children}</main>
       </div>

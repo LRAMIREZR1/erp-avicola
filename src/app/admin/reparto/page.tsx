@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { formatFecha } from "@/lib/format";
 import EstadoSelector from "@/components/EstadoSelector";
 import ImprimirButton from "@/components/ImprimirButton";
+import MarcarEntregadoButton from "@/components/MarcarEntregadoButton";
+import { requireRol } from "@/lib/roles";
 import {
   NOMBRES_CATEGORIA,
   NOMBRES_FORMATO,
@@ -82,6 +84,7 @@ function TablaConsolidado({ items }: { items: ItemConsolidado[] }) {
 }
 
 export default async function RepartoPage() {
+  const rol = await requireRol(["administrador", "vendedor", "encargado_bodega", "repartidor"]);
   const supabase = await createClient();
 
   const { data } = await supabase
@@ -167,6 +170,7 @@ export default async function RepartoPage() {
             </div>
           </div>
 
+          {rol !== "encargado_bodega" && (
           <div className="space-y-3">
             <p className="text-sm font-medium text-stone-700">
               Detalle por cliente (para armar cada pedido)
@@ -199,13 +203,19 @@ export default async function RepartoPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-3 print:hidden">
-                      <EstadoSelector pedidoId={p.id} estado="en_preparacion" />
-                      <Link
-                        href={`/admin/pedidos/${p.id}`}
-                        className="text-sm text-amber-700 hover:underline"
-                      >
-                        Ver
-                      </Link>
+                      {rol === "repartidor" ? (
+                        <MarcarEntregadoButton pedidoId={p.id} />
+                      ) : (
+                        <>
+                          <EstadoSelector pedidoId={p.id} estado="en_preparacion" />
+                          <Link
+                            href={`/admin/pedidos/${p.id}`}
+                            className="text-sm text-amber-700 hover:underline"
+                          >
+                            Ver
+                          </Link>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -249,6 +259,7 @@ export default async function RepartoPage() {
               );
             })}
           </div>
+          )}
         </>
       )}
     </div>

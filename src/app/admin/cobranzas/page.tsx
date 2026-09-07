@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatCLP, formatFecha } from "@/lib/format";
 import EstadoPagoToggle from "@/components/EstadoPagoToggle";
 import StatCard from "@/components/StatCard";
+import { requireRol } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ export default async function CobranzasPage({
 }: {
   searchParams: Promise<{ pago?: string }>;
 }) {
+  await requireRol(["administrador", "vendedor"]);
   const { pago } = await searchParams;
   const supabase = await createClient();
 
