@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatCLP, formatFecha } from "@/lib/format";
 import EstadoSelector from "@/components/EstadoSelector";
+import EstadoBadge from "@/components/EstadoBadge";
 import BorrarPedidoButton from "@/components/BorrarPedidoButton";
 import EstadoPagoToggle from "@/components/EstadoPagoToggle";
 import { requireRol } from "@/lib/roles";
@@ -60,7 +61,11 @@ export default async function DetallePedidoPage({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <EstadoSelector pedidoId={pedido.id} estado={pedido.estado} />
+          {rol === "administrador" ? (
+            <EstadoSelector pedidoId={pedido.id} estado={pedido.estado} />
+          ) : (
+            <EstadoBadge estado={pedido.estado} />
+          )}
           <Link
             href={`/admin/pedidos/${pedido.id}/editar`}
             className="text-xs font-medium text-amber-700 hover:underline"
