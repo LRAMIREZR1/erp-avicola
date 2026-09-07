@@ -54,8 +54,9 @@ function TablaConsolidado({ items }: { items: ItemConsolidado[] }) {
   return (
     <div className="overflow-hidden rounded-xl border border-stone-200">
       <table className="w-full text-left text-sm">
-        <thead className="bg-stone-50 text-xs uppercase text-stone-500">
+        <thead className="bg-stone-200 text-xs font-semibold uppercase tracking-wide text-stone-600">
           <tr>
+            <th className="w-8 px-3 py-2"></th>
             <th className="px-4 py-2">Producto</th>
             <th className="px-4 py-2">Categoría</th>
             <th className="px-4 py-2">Formato</th>
@@ -65,6 +66,7 @@ function TablaConsolidado({ items }: { items: ItemConsolidado[] }) {
         <tbody className="divide-y divide-stone-100">
           {items.map((item) => (
             <tr key={item.producto_id}>
+              <td className="px-3 py-2 text-center text-stone-400">☐</td>
               <td className="px-4 py-2 font-medium text-stone-800">{item.nombre}</td>
               <td className="px-4 py-2 text-stone-600">
                 {NOMBRES_CATEGORIA[item.categoria as Categoria]}
@@ -96,6 +98,20 @@ export default async function RepartoPage() {
     .order("fecha_entrega", { ascending: true });
 
   const lista = (data ?? []) as unknown as PedidoReparto[];
+
+  // Orden de ruta: agrupado por zona de entrega (los sin zona quedan al final),
+  // y dentro de cada zona por nombre de cliente. Sirve tanto para la tabla
+  // resumen como para el detalle por cliente, así los números coinciden.
+  const listaRuta = [...lista].sort((a, b) => {
+    const zonaA = a.clientes?.zona_entrega ?? "";
+    const zonaB = b.clientes?.zona_entrega ?? "";
+    if (zonaA !== zonaB) {
+      if (!zonaA) return 1;
+      if (!zonaB) return -1;
+      return zonaA.localeCompare(zonaB);
+    }
+    return (a.clientes?.nombre ?? "").localeCompare(b.clientes?.nombre ?? "");
+  });
 
   const consolidadoMap = new Map<string, ItemConsolidado>();
   for (const p of lista) {
@@ -150,7 +166,7 @@ export default async function RepartoPage() {
         </div>
       ) : (
         <>
-          <div className="rounded-2xl border border-stone-200 bg-white p-4">
+          <div className="break-inside-avoid rounded-2xl border border-stone-200 bg-white p-4">
             <p className="mb-3 text-sm font-medium text-stone-700">
               Resumen de carga ({lista.length} pedido{lista.length === 1 ? "" : "s"})
             </p>
@@ -171,101 +187,162 @@ export default async function RepartoPage() {
           </div>
 
           {rol !== "encargado_bodega" && (
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-stone-700">
-              Detalle por cliente (para armar cada pedido)
-            </p>
-            {lista.map((p) => {
-              const items = p.pedido_items ?? [];
-              const itemsCajas = items.filter((i) => i.productos && esCaja(i.productos.formato));
-              const itemsBandejas = items.filter(
-                (i) => i.productos && !esCaja(i.productos.formato)
-              );
-
-              return (
-                <div key={p.id} className="rounded-2xl border border-stone-200 bg-white p-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-medium text-stone-800">
-                        {p.clientes?.nombre ?? "Cliente"}
-                      </p>
-                      <p className="text-sm text-stone-500">
-                        {p.clientes?.direccion ?? "Sin dirección"}
-                        {p.clientes?.zona_entrega ? ` · ${p.clientes.zona_entrega}` : ""}
-                      </p>
-                      {p.clientes?.telefono && (
-                        <p className="text-sm text-stone-500">{p.clientes.telefono}</p>
-                      )}
-                      {p.fecha_entrega && (
-                        <p className="text-xs text-stone-400">
-                          Entrega prevista: {formatFecha(p.fecha_entrega)}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 print:hidden">
-                      {rol === "repartidor" ? (
-                        <MarcarEntregadoButton pedidoId={p.id} />
-                      ) : rol === "administrador" ? (
-                        <>
-                          <EstadoSelector pedidoId={p.id} estado="en_preparacion" />
-                          <Link
-                            href={`/admin/pedidos/${p.id}`}
-                            className="text-sm text-amber-700 hover:underline"
-                          >
-                            Ver
-                          </Link>
-                        </>
-                      ) : (
-                        <Link
-                          href={`/admin/pedidos/${p.id}`}
-                          className="text-sm text-amber-700 hover:underline"
-                        >
-                          Ver
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-3 grid grid-cols-1 gap-3 border-t border-stone-100 pt-3 sm:grid-cols-2">
-                    <div>
-                      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-stone-400">
-                        Cajas
-                      </p>
-                      {itemsCajas.length === 0 ? (
-                        <p className="text-sm text-stone-400">—</p>
-                      ) : (
-                        <ul className="space-y-1 text-sm text-stone-700">
-                          {itemsCajas.map((item, i) => (
-                            <li key={i}>
-                              {item.productos?.nombre ?? "Producto"} × {item.cantidad}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                    <div>
-                      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-stone-400">
-                        Bandejas
-                      </p>
-                      {itemsBandejas.length === 0 ? (
-                        <p className="text-sm text-stone-400">—</p>
-                      ) : (
-                        <ul className="space-y-1 text-sm text-stone-700">
-                          {itemsBandejas.map((item, i) => (
-                            <li key={i}>
-                              {item.productos?.nombre ?? "Producto"} × {item.cantidad}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-
-                  {p.notas && <p className="mt-2 text-xs text-stone-500">Nota: {p.notas}</p>}
+            <div className="space-y-4">
+              <div className="break-inside-avoid overflow-hidden rounded-2xl border border-stone-200 bg-white">
+                <div className="p-4 pb-3">
+                  <p className="text-sm font-medium text-stone-700">
+                    Ruta del día ({listaRuta.length} parada{listaRuta.length === 1 ? "" : "s"})
+                  </p>
                 </div>
-              );
-            })}
-          </div>
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-stone-200 text-xs font-semibold uppercase tracking-wide text-stone-600">
+                    <tr>
+                      <th className="w-10 px-4 py-2">N°</th>
+                      <th className="px-4 py-2">Cliente</th>
+                      <th className="px-4 py-2">Zona</th>
+                      <th className="px-4 py-2">Dirección</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100">
+                    {listaRuta.map((p, i) => (
+                      <tr key={p.id}>
+                        <td className="px-4 py-2 font-semibold text-stone-800">{i + 1}</td>
+                        <td className="px-4 py-2 text-stone-700">
+                          {p.clientes?.nombre ?? "Cliente"}
+                        </td>
+                        <td className="px-4 py-2 text-stone-600">
+                          {p.clientes?.zona_entrega ?? "—"}
+                        </td>
+                        <td className="px-4 py-2 text-stone-600">
+                          {p.clientes?.direccion ?? "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <p className="text-sm font-medium text-stone-700">
+                Detalle por cliente (para armar cada pedido)
+              </p>
+              {listaRuta.map((p, index) => {
+                const items = p.pedido_items ?? [];
+                const itemsCajas = items.filter(
+                  (i) => i.productos && esCaja(i.productos.formato)
+                );
+                const itemsBandejas = items.filter(
+                  (i) => i.productos && !esCaja(i.productos.formato)
+                );
+                const zonaAnterior =
+                  index > 0 ? listaRuta[index - 1].clientes?.zona_entrega ?? "" : null;
+                const zonaActual = p.clientes?.zona_entrega ?? "";
+                const mostrarEncabezadoZona = index === 0 || zonaActual !== zonaAnterior;
+
+                return (
+                  <div key={p.id}>
+                    {mostrarEncabezadoZona && (
+                      <p
+                        className={
+                          index === 0
+                            ? "mb-2 text-xs font-semibold uppercase tracking-wide text-amber-700"
+                            : "mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-amber-700"
+                        }
+                      >
+                        {zonaActual || "Sin zona asignada"}
+                      </p>
+                    )}
+                    <div className="break-inside-avoid rounded-2xl border border-stone-200 bg-white p-4">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="flex items-center gap-2 font-medium text-stone-800">
+                            <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-stone-800 text-xs font-semibold text-white">
+                              {index + 1}
+                            </span>
+                            {p.clientes?.nombre ?? "Cliente"}
+                          </p>
+                          <p className="text-sm text-stone-500">
+                            {p.clientes?.direccion ?? "Sin dirección"}
+                            {p.clientes?.zona_entrega ? ` · ${p.clientes.zona_entrega}` : ""}
+                          </p>
+                          {p.clientes?.telefono && (
+                            <p className="text-sm text-stone-500">{p.clientes.telefono}</p>
+                          )}
+                          {p.fecha_entrega && (
+                            <p className="text-xs text-stone-400">
+                              Entrega prevista: {formatFecha(p.fecha_entrega)}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 print:hidden">
+                          {rol === "repartidor" ? (
+                            <MarcarEntregadoButton pedidoId={p.id} />
+                          ) : rol === "administrador" ? (
+                            <>
+                              <EstadoSelector pedidoId={p.id} estado="en_preparacion" />
+                              <Link
+                                href={`/admin/pedidos/${p.id}`}
+                                className="text-sm text-amber-700 hover:underline"
+                              >
+                                Ver
+                              </Link>
+                            </>
+                          ) : (
+                            <Link
+                              href={`/admin/pedidos/${p.id}`}
+                              className="text-sm text-amber-700 hover:underline"
+                            >
+                              Ver
+                            </Link>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-1 gap-3 border-t border-stone-100 pt-3 sm:grid-cols-2">
+                        <div>
+                          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-stone-400">
+                            Cajas
+                          </p>
+                          {itemsCajas.length === 0 ? (
+                            <p className="text-sm text-stone-400">—</p>
+                          ) : (
+                            <ul className="space-y-1 text-sm text-stone-700">
+                              {itemsCajas.map((item, i) => (
+                                <li key={i}>
+                                  ☐ {item.productos?.nombre ?? "Producto"} × {item.cantidad}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                        <div>
+                          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-stone-400">
+                            Bandejas
+                          </p>
+                          {itemsBandejas.length === 0 ? (
+                            <p className="text-sm text-stone-400">—</p>
+                          ) : (
+                            <ul className="space-y-1 text-sm text-stone-700">
+                              {itemsBandejas.map((item, i) => (
+                                <li key={i}>
+                                  ☐ {item.productos?.nombre ?? "Producto"} × {item.cantidad}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
+
+                      {p.notas && <p className="mt-2 text-xs text-stone-500">Nota: {p.notas}</p>}
+
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-stone-100 pt-2 text-xs text-stone-500">
+                        <span>Recibido por: ____________________________</span>
+                        <span>Firma: ____________________________</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </>
       )}
