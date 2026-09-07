@@ -13,6 +13,51 @@ import {
 
 export const dynamic = "force-dynamic";
 
+interface ProductoStockBajo {
+  id: string;
+  nombre: string;
+  stock_actual: number;
+  stock_minimo: number;
+}
+
+function TablaAlertaStock({
+  titulo,
+  productos,
+}: {
+  titulo: string;
+  productos: ProductoStockBajo[];
+}) {
+  return (
+    <div>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-700">
+        {titulo}
+      </p>
+      {productos.length === 0 ? (
+        <p className="text-sm text-amber-700/70">Sin alertas</p>
+      ) : (
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="text-xs text-amber-700">
+              <th className="pb-1 font-medium">Producto</th>
+              <th className="pb-1 text-right font-medium">Quedan</th>
+              <th className="pb-1 text-right font-medium">Mínimo</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-amber-200">
+            {productos.map((p) => (
+              <tr key={p.id}>
+                <td className="py-1 text-amber-900">{p.nombre}</td>
+                <td className="py-1 text-right font-medium text-amber-900">{p.stock_actual}</td>
+                <td className="py-1 text-right text-amber-700">{p.stock_minimo}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
 export default async function DashboardPage() {
   await requireRol(["administrador", "vendedor"]);
   const supabase = await createClient();
@@ -46,6 +91,8 @@ export default async function DashboardPage() {
   const totalHoy = (pedidosHoy.data ?? []).reduce((acc, p) => acc + Number(p.total), 0);
   const stockProductos = stockBajo.data ?? [];
   const productosStockBajo = stockProductos.filter((p) => p.stock_actual <= p.stock_minimo);
+  const bandejasStockBajo = productosStockBajo.filter((p) => p.formato === "bandeja_30");
+  const cajasStockBajo = productosStockBajo.filter((p) => p.formato !== "bandeja_30");
 
   const stockPorCategoria = new Map<string, StockChartDatum>();
   for (const p of stockProductos) {
@@ -88,14 +135,11 @@ export default async function DashboardPage() {
 
       {productosStockBajo.length > 0 && (
         <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4">
-          <p className="mb-2 text-sm font-medium text-amber-800">Alertas de stock bajo</p>
-          <ul className="space-y-1 text-sm text-amber-800">
-            {productosStockBajo.map((p) => (
-              <li key={p.id}>
-                {p.nombre}: quedan {p.stock_actual} (mínimo {p.stock_minimo})
-              </li>
-            ))}
-          </ul>
+          <p className="mb-3 text-sm font-medium text-amber-800">Alertas de stock bajo</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <TablaAlertaStock titulo="Bandejas" productos={bandejasStockBajo} />
+            <TablaAlertaStock titulo="Cajas" productos={cajasStockBajo} />
+          </div>
         </div>
       )}
 
