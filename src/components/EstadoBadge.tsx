@@ -6,6 +6,7 @@ const COLORES: Record<EstadoPedido, string> = {
   en_preparacion: "bg-blue-100 text-blue-700",
   entregado: "bg-green-100 text-green-700",
   cancelado: "bg-red-100 text-red-700",
+  eliminado: "bg-stone-700 text-white",
 };
 
 export default function EstadoBadge({ estado }: { estado: EstadoPedido }) {
