@@ -17,7 +17,7 @@ export default async function CobranzasPage({
 }: {
   searchParams: Promise<{ pago?: string }>;
 }) {
-  await requireRol(["administrador", "vendedor"]);
+  const rol = await requireRol(["administrador", "vendedor"]);
   const { pago } = await searchParams;
   const supabase = await createClient();
 
@@ -128,7 +128,17 @@ export default async function CobranzasPage({
                     {p.pagado && p.fecha_pago ? `Pagado el ${formatFecha(p.fecha_pago)}` : "Sin pagar"}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <EstadoPagoToggle pedidoId={p.id} pagado={p.pagado} />
+                    {rol === "administrador" ? (
+                      <EstadoPagoToggle pedidoId={p.id} pagado={p.pagado} />
+                    ) : (
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-medium ${
+                          p.pagado ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                        }`}
+                      >
+                        {p.pagado ? "Pagado ✓" : "Sin pagar"}
+                      </span>
+                    )}
                   </td>
                 </tr>
               );
