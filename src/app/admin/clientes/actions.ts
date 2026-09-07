@@ -39,3 +39,34 @@ export async function desactivarCliente(id: string) {
   await supabase.from("clientes").update({ activo: false }).eq("id", id);
   revalidatePath("/admin/clientes");
 }
+
+// Creación rápida de cliente desde dentro del formulario de Pedido (o
+// cualquier otro formulario), sin salir de esa pantalla. A diferencia de
+// guardarCliente, no redirige: devuelve el cliente recién creado para que el
+// formulario que la llamó lo agregue a su lista y lo deje seleccionado.
+export async function crearClienteRapido(formData: FormData) {
+  const supabase = await createClient();
+
+  const nombre = String(formData.get("nombre") ?? "").trim();
+  if (!nombre) {
+    throw new Error("El nombre del cliente es obligatorio");
+  }
+
+  const payload = {
+    nombre,
+    tipo: (formData.get("tipo") as TipoCliente) || "minorista",
+    telefono: (formData.get("telefono") as string) || null,
+    direccion: (formData.get("direccion") as string) || null,
+    zona_entrega: (formData.get("zona_entrega") as string) || null,
+  };
+
+  const { data, error } = await supabase.from("clientes").insert(payload).select("*").single();
+
+  if (error || !data) {
+    throw new Error("No se pudo crear el cliente: " + error?.message);
+  }
+
+  revalidatePath("/admin/clientes");
+  revalidatePath("/admin/pedidos/nuevo");
+  return data;
+}
