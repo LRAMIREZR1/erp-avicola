@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { hoyChile } from "@/lib/format";
 
 export async function marcarPagado(pedidoId: string, pagado: boolean) {
   "use server";
@@ -11,7 +12,7 @@ export async function marcarPagado(pedidoId: string, pagado: boolean) {
     .from("pedidos")
     .update({
       pagado,
-      fecha_pago: pagado ? new Date().toISOString().slice(0, 10) : null,
+      fecha_pago: pagado ? hoyChile() : null,
     })
     .eq("id", pedidoId);
 
