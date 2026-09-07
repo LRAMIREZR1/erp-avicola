@@ -6,7 +6,8 @@ export type EstadoPedido =
   | "confirmado"
   | "en_preparacion"
   | "entregado"
-  | "cancelado";
+  | "cancelado"
+  | "eliminado";
 
 export type Rol = "administrador" | "vendedor" | "encargado_bodega" | "repartidor";
 
@@ -109,4 +110,5 @@ export const NOMBRES_ESTADO: Record<EstadoPedido, string> = {
   en_preparacion: "En preparación",
   entregado: "Entregado",
   cancelado: "Cancelado",
+  eliminado: "Eliminado",
 };
