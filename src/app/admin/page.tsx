@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { formatCLP } from "@/lib/format";
+import { formatCLP, hoyChile } from "@/lib/format";
 import StatCard from "@/components/StatCard";
 import StockChart, { type StockChartDatum } from "@/components/StockChart";
 import {
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = hoyChile();
 
   const [pedidosHoy, pendientes, stockBajo, ultimosPedidos] = await Promise.all([
     supabase.from("pedidos").select("total").eq("fecha_pedido", hoy).neq("estado", "cancelado"),
