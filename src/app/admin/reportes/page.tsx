@@ -31,13 +31,36 @@ export default async function ReportesPage({
 
   const { data: itemsVendidos } = await supabase
     .from("pedido_items")
-    .select("cantidad, subtotal, productos(nombre), pedidos!inner(fecha_pedido, estado)")
+    .select(
+      "cantidad, precio_unitario, precio_lista, subtotal, productos(nombre), pedidos!inner(fecha_pedido, estado, clientes(nombre))"
+    )
     .neq("pedidos.estado", "cancelado")
     .gte("pedidos.fecha_pedido", desde)
     .lte("pedidos.fecha_pedido", hasta);
 
   const totalPeriodo = (pedidos ?? []).reduce((acc, p) => acc + Number(p.total), 0);
   const cantidadPedidos = (pedidos ?? []).length;
+
+  let totalDescuento = 0;
+  const porClienteDescuento = new Map<string, number>();
+  for (const item of itemsVendidos ?? []) {
+    const precioLista = Number(item.precio_lista ?? item.precio_unitario);
+    const descuentoLinea = (precioLista - Number(item.precio_unitario)) * item.cantidad;
+    if (descuentoLinea > 0.5) {
+      totalDescuento += descuentoLinea;
+      const nombreCliente =
+        (
+          item as unknown as {
+            pedidos: { clientes: { nombre: string } | null } | null;
+          }
+        ).pedidos?.clientes?.nombre ?? "Cliente";
+      porClienteDescuento.set(
+        nombreCliente,
+        (porClienteDescuento.get(nombreCliente) ?? 0) + descuentoLinea
+      );
+    }
+  }
+  const clientesConDescuento = [...porClienteDescuento.entries()].sort((a, b) => b[1] - a[1]);
 
   const porVendedor = new Map<string, number>();
   for (const p of pedidos ?? []) {
@@ -92,9 +115,19 @@ export default async function ReportesPage({
         </button>
       </form>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Total vendido" value={formatCLP(totalPeriodo)} hint={`${desde} a ${hasta}`} />
         <StatCard label="Pedidos" value={cantidadPedidos} hint="No cancelados" />
+        <StatCard
+          label="Descuentos otorgados"
+          value={formatCLP(totalDescuento)}
+          tone={totalDescuento > 0 ? "warning" : "default"}
+          hint={
+            totalPeriodo > 0
+              ? `${((totalDescuento / (totalPeriodo + totalDescuento)) * 100).toFixed(1)}% del valor de lista`
+              : "Sin ventas en el período"
+          }
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -128,6 +161,23 @@ export default async function ReportesPage({
               <p className="py-4 text-center text-sm text-stone-400">Sin datos</p>
             )}
           </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-stone-200 bg-white p-4">
+        <p className="mb-3 text-sm font-medium text-stone-700">Descuentos por cliente</p>
+        <div className="divide-y divide-stone-100">
+          {clientesConDescuento.map(([nombre, monto]) => (
+            <div key={nombre} className="flex items-center justify-between py-2 text-sm">
+              <span className="text-stone-600">{nombre}</span>
+              <span className="font-medium text-amber-700">-{formatCLP(monto)}</span>
+            </div>
+          ))}
+          {clientesConDescuento.length === 0 && (
+            <p className="py-4 text-center text-sm text-stone-400">
+              Sin descuentos otorgados en este período
+            </p>
+          )}
         </div>
       </div>
     </div>
