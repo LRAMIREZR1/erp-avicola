@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { hoyChile } from "@/lib/format";
 
 interface LineaVenta {
   producto_id: string;
@@ -27,13 +28,14 @@ export async function crearVentaDirecta(formData: FormData) {
   if (!clienteId) throw new Error("Debes seleccionar un cliente");
   if (items.length === 0) throw new Error("Agrega al menos un producto a la venta");
 
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = hoyChile();
 
   const { data: pedido, error } = await supabase
     .from("pedidos")
     .insert({
       cliente_id: clienteId,
       vendedor_id: user?.id ?? null,
+      fecha_pedido: hoy,
       fecha_entrega: hoy,
       notas,
       origen: "venta_directa",
