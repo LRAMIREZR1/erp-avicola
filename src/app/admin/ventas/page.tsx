@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { formatCLP, formatFecha } from "@/lib/format";
+import { formatCLP, formatFecha, hoyChile } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,7 @@ export default async function VentasPage() {
 
   const lista = ventas ?? [];
   const totalHoy = lista
-    .filter((v) => v.fecha_pedido === new Date().toISOString().slice(0, 10))
+    .filter((v) => v.fecha_pedido === hoyChile())
     .reduce((acc, v) => acc + Number(v.total), 0);
 
   return (
