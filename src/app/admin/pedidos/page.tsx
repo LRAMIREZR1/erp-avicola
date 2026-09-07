@@ -114,7 +114,7 @@ export default async function PedidosPage({
                     >
                       Ver
                     </Link>
-                    {(rol === "administrador" || p.estado !== "entregado") && (
+                    {(rol === "administrador" || p.estado === "pendiente") && (
                       <Link
                         href={`/admin/pedidos/${p.id}/editar`}
                         className="text-amber-700 hover:underline"
