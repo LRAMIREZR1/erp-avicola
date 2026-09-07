@@ -28,7 +28,7 @@ export default async function EditarPedidoPage({
 
   if (!pedidoRes.data) notFound();
 
-  if (rol === "vendedor" && pedidoRes.data.estado === "entregado") {
+  if (rol === "vendedor" && pedidoRes.data.estado !== "pendiente") {
     redirect(`/admin/pedidos/${id}`);
   }
 
