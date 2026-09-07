@@ -22,6 +22,18 @@ export function hoyChile(): string {
   }).format(new Date());
 }
 
+// Igual que hoyChile(), pero convierte un timestamp cualquiera (no "ahora")
+// a su fecha calendario en hora de Chile. Sirve para agrupar registros (por
+// ejemplo, movimientos de stock) por día de Chile y no por día UTC.
+export function diaChileDe(fechaIso: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Santiago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(fechaIso));
+}
+
 // Fecha y hora en la zona horaria de Chile, para timestamps guardados en UTC
 // (como created_at). Mismo motivo que hoyChile(): sin especificar timeZone,
 // el servidor (que corre en UTC) muestra la hora UTC en vez de la de Chile.
