@@ -17,7 +17,7 @@ export default async function DetallePedidoPage({
   const { data: pedido } = await supabase
     .from("pedidos")
     .select(
-      "id, estado, total, fecha_pedido, fecha_entrega, notas, pagado, fecha_pago, clientes(nombre, telefono, direccion, zona_entrega), vendedores(nombre)"
+      "id, estado, total, fecha_pedido, fecha_entrega, notas, pagado, fecha_pago, motivo_descuento, clientes(nombre, telefono, direccion, zona_entrega), vendedores(nombre)"
     )
     .eq("id", id)
     .single();
@@ -26,8 +26,15 @@ export default async function DetallePedidoPage({
 
   const { data: items } = await supabase
     .from("pedido_items")
-    .select("id, cantidad, precio_unitario, subtotal, productos(nombre)")
+    .select("id, cantidad, precio_unitario, precio_lista, subtotal, productos(nombre)")
     .eq("pedido_id", id);
+
+  const listaItems = items ?? [];
+  const totalLista = listaItems.reduce(
+    (acc, item) => acc + item.cantidad * Number(item.precio_lista ?? item.precio_unitario),
+    0
+  );
+  const descuento = totalLista - Number(pedido.total);
 
   const cliente = (
     pedido as unknown as {
@@ -88,22 +95,41 @@ export default async function DetallePedidoPage({
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
         <p className="mb-3 text-sm font-medium text-stone-700">Productos</p>
         <div className="divide-y divide-stone-100">
-          {(items ?? []).map((item) => (
-            <div key={item.id} className="flex items-center justify-between py-2 text-sm">
-              <span className="text-stone-700">
-                {(item as unknown as { productos: { nombre: string } | null }).productos
-                  ?.nombre ?? "Producto"}{" "}
-                × {item.cantidad}
-              </span>
-              <span className="text-stone-800">{formatCLP(Number(item.subtotal))}</span>
-            </div>
-          ))}
+          {listaItems.map((item) => {
+            const precioLista = Number(item.precio_lista ?? item.precio_unitario);
+            const conDescuento = Number(item.precio_unitario) < precioLista;
+            return (
+              <div key={item.id} className="py-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-stone-700">
+                    {(item as unknown as { productos: { nombre: string } | null }).productos
+                      ?.nombre ?? "Producto"}{" "}
+                    × {item.cantidad}
+                  </span>
+                  <span className="text-stone-800">{formatCLP(Number(item.subtotal))}</span>
+                </div>
+                {conDescuento && (
+                  <p className="text-right text-xs text-amber-700">
+                    Precio de lista: {formatCLP(precioLista)}
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
-        <div className="mt-3 flex items-center justify-between border-t border-stone-200 pt-3">
-          <span className="text-sm font-medium text-stone-700">Total</span>
-          <span className="text-lg font-semibold text-stone-800">
-            {formatCLP(Number(pedido.total))}
-          </span>
+        <div className="mt-3 space-y-1 border-t border-stone-200 pt-3">
+          {descuento > 0.5 && (
+            <div className="flex items-center justify-between text-sm text-amber-700">
+              <span>Descuento aplicado{pedido.motivo_descuento ? ` (${pedido.motivo_descuento})` : ""}</span>
+              <span>-{formatCLP(descuento)}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-stone-700">Total</span>
+            <span className="text-lg font-semibold text-stone-800">
+              {formatCLP(Number(pedido.total))}
+            </span>
+          </div>
         </div>
       </div>
 
