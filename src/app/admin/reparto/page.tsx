@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { formatFecha } from "@/lib/format";
+import { formatCLP, formatFecha } from "@/lib/format";
 import EstadoSelector from "@/components/EstadoSelector";
 import ImprimirButton from "@/components/ImprimirButton";
 import MarcarEntregadoButton from "@/components/MarcarEntregadoButton";
@@ -26,6 +26,8 @@ interface PedidoReparto {
   id: string;
   fecha_entrega: string | null;
   notas: string | null;
+  total: number;
+  pagado: boolean;
   clientes: {
     nombre: string;
     telefono: string | null;
@@ -92,7 +94,7 @@ export default async function RepartoPage() {
   const { data } = await supabase
     .from("pedidos")
     .select(
-      "id, fecha_entrega, notas, clientes(nombre, telefono, direccion, zona_entrega), pedido_items(cantidad, productos(id, nombre, categoria, formato))"
+      "id, fecha_entrega, notas, total, pagado, clientes(nombre, telefono, direccion, zona_entrega), pedido_items(cantidad, productos(id, nombre, categoria, formato))"
     )
     .eq("estado", "en_preparacion")
     .order("fecha_entrega", { ascending: true });
@@ -137,6 +139,9 @@ export default async function RepartoPage() {
   const consolidadoBandejas = consolidado.filter((i) => !esCaja(i.formato));
   const totalCajas = consolidadoCajas.reduce((acc, i) => acc + i.cantidad, 0);
   const totalBandejas = consolidadoBandejas.reduce((acc, i) => acc + i.cantidad, 0);
+  const totalACobrar = listaRuta
+    .filter((p) => !p.pagado)
+    .reduce((acc, p) => acc + Number(p.total), 0);
 
   return (
     <div className="space-y-6">
@@ -201,6 +206,7 @@ export default async function RepartoPage() {
                       <th className="px-4 py-2">Cliente</th>
                       <th className="px-4 py-2">Zona</th>
                       <th className="px-4 py-2">Dirección</th>
+                      <th className="px-4 py-2 text-right">Cobrar</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-100">
@@ -216,9 +222,28 @@ export default async function RepartoPage() {
                         <td className="px-4 py-2 text-stone-600">
                           {p.clientes?.direccion ?? "—"}
                         </td>
+                        <td className="px-4 py-2 text-right">
+                          {p.pagado ? (
+                            <span className="text-stone-400">Pagado</span>
+                          ) : (
+                            <span className="font-semibold text-amber-700">
+                              {formatCLP(Number(p.total))}
+                            </span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
+                  <tfoot>
+                    <tr className="border-t border-stone-200 bg-stone-50">
+                      <td colSpan={4} className="px-4 py-2 text-right font-medium text-stone-600">
+                        Total a cobrar en la ruta
+                      </td>
+                      <td className="px-4 py-2 text-right font-semibold text-stone-800">
+                        {formatCLP(totalACobrar)}
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
 
@@ -273,27 +298,41 @@ export default async function RepartoPage() {
                             </p>
                           )}
                         </div>
-                        <div className="flex items-center gap-3 print:hidden">
-                          {rol === "repartidor" ? (
-                            <MarcarEntregadoButton pedidoId={p.id} />
-                          ) : rol === "administrador" ? (
-                            <>
-                              <EstadoSelector pedidoId={p.id} estado="en_preparacion" />
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="text-right">
+                            <p className="text-base font-semibold text-stone-800">
+                              {formatCLP(Number(p.total))}
+                            </p>
+                            {p.pagado ? (
+                              <p className="text-xs font-medium text-stone-400">Ya pagado</p>
+                            ) : (
+                              <p className="text-xs font-semibold text-amber-700">
+                                Por cobrar (efectivo / transferencia)
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 print:hidden">
+                            {rol === "repartidor" ? (
+                              <MarcarEntregadoButton pedidoId={p.id} />
+                            ) : rol === "administrador" ? (
+                              <>
+                                <EstadoSelector pedidoId={p.id} estado="en_preparacion" />
+                                <Link
+                                  href={`/admin/pedidos/${p.id}`}
+                                  className="text-sm text-amber-700 hover:underline"
+                                >
+                                  Ver
+                                </Link>
+                              </>
+                            ) : (
                               <Link
                                 href={`/admin/pedidos/${p.id}`}
                                 className="text-sm text-amber-700 hover:underline"
                               >
                                 Ver
                               </Link>
-                            </>
-                          ) : (
-                            <Link
-                              href={`/admin/pedidos/${p.id}`}
-                              className="text-sm text-amber-700 hover:underline"
-                            >
-                              Ver
-                            </Link>
-                          )}
+                            )}
+                          </div>
                         </div>
                       </div>
 
