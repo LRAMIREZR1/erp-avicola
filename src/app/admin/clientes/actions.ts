@@ -40,6 +40,23 @@ export async function desactivarCliente(id: string) {
   revalidatePath("/admin/clientes");
 }
 
+export async function reactivarCliente(id: string) {
+  "use server";
+  const supabase = await createClient();
+  await supabase.from("clientes").update({ activo: true }).eq("id", id);
+  revalidatePath("/admin/clientes");
+}
+
+// Borrado definitivo: solo se ofrece en la interfaz cuando el cliente no
+// tiene ningún pedido asociado (la tabla pedidos no permite borrar un
+// cliente que sí tiene pedidos, por la relación entre ambas tablas), así
+// que en ese caso es seguro eliminarlo de verdad en vez de solo desactivarlo.
+export async function eliminarCliente(id: string) {
+  const supabase = await createClient();
+  await supabase.from("clientes").delete().eq("id", id);
+  revalidatePath("/admin/clientes");
+}
+
 // Creación rápida de cliente desde dentro del formulario de Pedido (o
 // cualquier otro formulario), sin salir de esa pantalla. A diferencia de
 // guardarCliente, no redirige: devuelve el cliente recién creado para que el
