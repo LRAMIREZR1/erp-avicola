@@ -27,7 +27,7 @@ function TablaProductos({
   return (
     <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
       <table className="w-full text-left text-sm">
-        <thead className="bg-stone-50 text-xs uppercase text-stone-500">
+        <thead className="bg-stone-200 text-xs font-semibold uppercase tracking-wide text-stone-600">
           <tr>
             <th className="px-4 py-3">Producto</th>
             <th className="px-4 py-3">Categoría</th>
