@@ -9,12 +9,14 @@ interface Linea {
   producto_id: string;
   cantidad: number;
   precio_unitario: number;
+  precio_lista: number;
 }
 
 interface ValoresIniciales {
   cliente_id: string;
   fecha_entrega: string | null;
   notas: string | null;
+  motivo_descuento?: string | null;
   items: Linea[];
 }
 
@@ -33,14 +35,23 @@ export default function PedidoForm({
 }) {
   const [lineas, setLineas] = useState<Linea[]>(
     valoresIniciales?.items.length
-      ? valoresIniciales.items
-      : [{ producto_id: "", cantidad: 1, precio_unitario: 0 }]
+      ? valoresIniciales.items.map((l) => ({
+          ...l,
+          precio_lista: (l as Linea).precio_lista ?? l.precio_unitario,
+        }))
+      : [{ producto_id: "", cantidad: 1, precio_unitario: 0, precio_lista: 0 }]
   );
+  const [motivoDescuento, setMotivoDescuento] = useState(valoresIniciales?.motivo_descuento ?? "");
 
   const total = useMemo(
     () => lineas.reduce((acc, l) => acc + l.cantidad * l.precio_unitario, 0),
     [lineas]
   );
+  const totalLista = useMemo(
+    () => lineas.reduce((acc, l) => acc + l.cantidad * l.precio_lista, 0),
+    [lineas]
+  );
+  const descuento = totalLista - total;
 
   function actualizarLinea(index: number, cambios: Partial<Linea>) {
     setLineas((prev) => prev.map((l, i) => (i === index ? { ...l, ...cambios } : l)));
@@ -51,11 +62,15 @@ export default function PedidoForm({
     actualizarLinea(index, {
       producto_id: productoId,
       precio_unitario: producto?.precio ?? 0,
+      precio_lista: producto?.precio ?? 0,
     });
   }
 
   function agregarLinea() {
-    setLineas((prev) => [...prev, { producto_id: "", cantidad: 1, precio_unitario: 0 }]);
+    setLineas((prev) => [
+      ...prev,
+      { producto_id: "", cantidad: 1, precio_unitario: 0, precio_lista: 0 },
+    ]);
   }
 
   function quitarLinea(index: number) {
@@ -100,40 +115,66 @@ export default function PedidoForm({
       <div>
         <p className="mb-2 text-sm font-medium text-stone-700">Productos *</p>
         <div className="space-y-2">
-          {lineas.map((linea, index) => (
-            <div key={index} className="flex items-center gap-2">
-              <select
-                value={linea.producto_id}
-                onChange={(e) => seleccionarProducto(index, e.target.value)}
-                className="flex-1 rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
-              >
-                <option value="">Producto</option>
-                {productos.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre} — {formatCLP(p.precio)} (stock: {p.stock_actual})
-                  </option>
-                ))}
-              </select>
-              <input
-                type="number"
-                min={1}
-                value={linea.cantidad}
-                onChange={(e) => actualizarLinea(index, { cantidad: Number(e.target.value) })}
-                className="w-20 rounded-lg border border-stone-300 px-2 py-2 text-sm"
-              />
-              <span className="w-24 text-right text-sm text-stone-600">
-                {formatCLP(linea.cantidad * linea.precio_unitario)}
-              </span>
-              <button
-                type="button"
-                onClick={() => quitarLinea(index)}
-                className="text-stone-400 hover:text-red-600"
-                disabled={lineas.length === 1}
-              >
-                ✕
-              </button>
-            </div>
-          ))}
+          {lineas.map((linea, index) => {
+            const conDescuento = linea.precio_unitario < linea.precio_lista;
+            return (
+              <div key={index} className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <select
+                    value={linea.producto_id}
+                    onChange={(e) => seleccionarProducto(index, e.target.value)}
+                    className="flex-1 rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
+                  >
+                    <option value="">Producto</option>
+                    {productos.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nombre} — {formatCLP(p.precio)} (stock: {p.stock_actual})
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    min={1}
+                    value={linea.cantidad}
+                    onChange={(e) => actualizarLinea(index, { cantidad: Number(e.target.value) })}
+                    className="w-16 rounded-lg border border-stone-300 px-2 py-2 text-sm"
+                    title="Cantidad"
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    value={linea.precio_unitario}
+                    onChange={(e) =>
+                      actualizarLinea(index, { precio_unitario: Number(e.target.value) })
+                    }
+                    className={`w-24 rounded-lg border px-2 py-2 text-sm ${
+                      conDescuento
+                        ? "border-amber-400 bg-amber-50 text-amber-800"
+                        : "border-stone-300"
+                    }`}
+                    title="Precio unitario (editable)"
+                  />
+                  <span className="w-24 text-right text-sm text-stone-600">
+                    {formatCLP(linea.cantidad * linea.precio_unitario)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => quitarLinea(index)}
+                    className="text-stone-400 hover:text-red-600"
+                    disabled={lineas.length === 1}
+                  >
+                    ✕
+                  </button>
+                </div>
+                {conDescuento && (
+                  <p className="pl-1 text-xs text-amber-700">
+                    Precio de lista: {formatCLP(linea.precio_lista)} — descuento de{" "}
+                    {formatCLP((linea.precio_lista - linea.precio_unitario) * linea.cantidad)}
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
         <button
           type="button"
@@ -144,10 +185,37 @@ export default function PedidoForm({
         </button>
       </div>
 
-      <div className="flex items-center justify-between border-t border-stone-200 pt-3">
-        <span className="text-sm font-medium text-stone-700">Total</span>
-        <span className="text-lg font-semibold text-stone-800">{formatCLP(total)}</span>
+      <div className="space-y-1 border-t border-stone-200 pt-3">
+        {descuento > 0.5 && (
+          <div className="flex items-center justify-between text-sm text-amber-700">
+            <span>Descuento total</span>
+            <span>-{formatCLP(descuento)}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-stone-700">Total</span>
+          <span className="text-lg font-semibold text-stone-800">{formatCLP(total)}</span>
+        </div>
       </div>
+
+      {descuento > 0.5 && (
+        <div>
+          <label className="mb-1 block text-sm font-medium text-stone-700">
+            Motivo del descuento
+          </label>
+          <input
+            type="text"
+            name="motivo_descuento"
+            value={motivoDescuento}
+            onChange={(e) => setMotivoDescuento(e.target.value)}
+            placeholder="Ej: pedido grande, cliente frecuente"
+            className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
+          />
+        </div>
+      )}
+      {descuento <= 0.5 && (
+        <input type="hidden" name="motivo_descuento" value="" />
+      )}
 
       <div>
         <label className="mb-1 block text-sm font-medium text-stone-700">Notas</label>
