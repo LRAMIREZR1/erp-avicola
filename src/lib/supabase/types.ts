@@ -55,6 +55,7 @@ export interface Pedido {
   pagado: boolean;
   fecha_pago: string | null;
   origen: OrigenPedido;
+  motivo_descuento: string | null;
   created_at: string;
 }
 
@@ -64,6 +65,7 @@ export interface PedidoItem {
   producto_id: string;
   cantidad: number;
   precio_unitario: number;
+  precio_lista: number | null;
   subtotal: number;
 }
 
