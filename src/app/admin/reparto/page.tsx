@@ -304,3 +304,84 @@ export default async function RepartoPage() {
                               {formatCLP(Number(p.total))}
                             </p>
                             {p.pagado ? (
+                              <p className="text-xs font-medium text-stone-400">Ya pagado</p>
+                            ) : (
+                              <p className="text-xs font-semibold text-amber-700">
+                                Por cobrar (efectivo / transferencia)
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 print:hidden">
+                            {rol === "repartidor" ? (
+                              <MarcarEntregadoButton pedidoId={p.id} />
+                            ) : rol === "administrador" ? (
+                              <>
+                                <EstadoSelector pedidoId={p.id} estado="en_preparacion" />
+                                <Link
+                                  href={`/admin/pedidos/${p.id}`}
+                                  className="text-sm text-amber-700 hover:underline"
+                                >
+                                  Ver
+                                </Link>
+                              </>
+                            ) : (
+                              <Link
+                                href={`/admin/pedidos/${p.id}`}
+                                className="text-sm text-amber-700 hover:underline"
+                              >
+                                Ver
+                              </Link>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-1 gap-3 border-t border-stone-100 print:border-stone-400 pt-3 sm:grid-cols-2">
+                        <div>
+                          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-stone-400">
+                            Cajas
+                          </p>
+                          {itemsCajas.length === 0 ? (
+                            <p className="text-sm text-stone-400">—</p>
+                          ) : (
+                            <ul className="space-y-1 text-base font-semibold text-stone-800">
+                              {itemsCajas.map((item, i) => (
+                                <li key={i}>
+                                  ☐ {item.productos?.nombre ?? "Producto"}{" "}
+                                  <span className="font-bold">× {item.cantidad}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                        <div>
+                          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-stone-400">
+                            Bandejas
+                          </p>
+                          {itemsBandejas.length === 0 ? (
+                            <p className="text-sm text-stone-400">—</p>
+                          ) : (
+                            <ul className="space-y-1 text-base font-semibold text-stone-800">
+                              {itemsBandejas.map((item, i) => (
+                                <li key={i}>
+                                  ☐ {item.productos?.nombre ?? "Producto"}{" "}
+                                  <span className="font-bold">× {item.cantidad}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
+
+                      {p.notas && <p className="mt-2 text-xs text-stone-500">Nota: {p.notas}</p>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
