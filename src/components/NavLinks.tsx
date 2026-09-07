@@ -7,7 +7,7 @@ import type { Rol } from "@/lib/supabase/types";
 const LINKS: { href: string; label: string; roles: Rol[] }[] = [
   { href: "/admin", label: "Resumen", roles: ["administrador", "vendedor"] },
   { href: "/admin/pedidos", label: "Pedidos", roles: ["administrador", "vendedor"] },
-  { href: "/admin/ventas", label: "Venta directa", roles: ["administrador", "vendedor"] },
+  { href: "/admin/ventas", label: "Venta directa", roles: ["administrador"] },
   {
     href: "/admin/reparto",
     label: "Reparto",
