@@ -28,6 +28,7 @@ export default async function ReportesPage({
     .from("pedidos")
     .select("id, total, fecha_pedido, estado, vendedores(nombre)")
     .neq("estado", "cancelado")
+    .neq("estado", "eliminado")
     .gte("fecha_pedido", desde)
     .lte("fecha_pedido", hasta);
 
@@ -37,6 +38,7 @@ export default async function ReportesPage({
       "cantidad, precio_unitario, precio_lista, subtotal, productos(nombre), pedidos!inner(fecha_pedido, estado, clientes(nombre))"
     )
     .neq("pedidos.estado", "cancelado")
+    .neq("pedidos.estado", "eliminado")
     .gte("pedidos.fecha_pedido", desde)
     .lte("pedidos.fecha_pedido", hasta);
 
@@ -87,7 +89,7 @@ export default async function ReportesPage({
     <div className="space-y-6">
       <div>
         <h1 className="text-lg font-semibold text-stone-800">Reportes de ventas</h1>
-        <p className="text-sm text-stone-500">No incluye pedidos cancelados</p>
+        <p className="text-sm text-stone-500">No incluye pedidos cancelados ni eliminados</p>
       </div>
 
       <form className="flex items-end gap-3">
