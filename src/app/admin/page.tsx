@@ -19,7 +19,12 @@ export default async function DashboardPage() {
   const hoy = hoyChile();
 
   const [pedidosHoy, pendientes, stockBajo, ultimosPedidos] = await Promise.all([
-    supabase.from("pedidos").select("total").eq("fecha_pedido", hoy).neq("estado", "cancelado"),
+    supabase
+      .from("pedidos")
+      .select("total")
+      .eq("fecha_pedido", hoy)
+      .neq("estado", "cancelado")
+      .neq("estado", "eliminado"),
     supabase
       .from("pedidos")
       .select("id", { count: "exact", head: true })
@@ -33,6 +38,7 @@ export default async function DashboardPage() {
     supabase
       .from("pedidos")
       .select("id, estado, total, fecha_pedido, clientes(nombre)")
+      .neq("estado", "eliminado")
       .order("created_at", { ascending: false })
       .limit(6),
   ]);
