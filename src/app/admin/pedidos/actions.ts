@@ -12,6 +12,18 @@ interface LineaPedido {
   precio_unitario: number;
 }
 
+// Trae el precio de catálogo actual de cada producto, para guardarlo como
+// "precio de lista" junto al precio realmente cobrado (permite trackear descuentos).
+async function obtenerPreciosLista(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  productoIds: string[]
+): Promise<Map<string, number>> {
+  const idsUnicos = [...new Set(productoIds)];
+  if (idsUnicos.length === 0) return new Map();
+  const { data } = await supabase.from("productos").select("id, precio").in("id", idsUnicos);
+  return new Map((data ?? []).map((p) => [p.id, Number(p.precio)]));
+}
+
 export async function crearPedido(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -21,6 +33,7 @@ export async function crearPedido(formData: FormData) {
   const clienteId = String(formData.get("cliente_id"));
   const fechaEntrega = (formData.get("fecha_entrega") as string) || null;
   const notas = (formData.get("notas") as string) || null;
+  const motivoDescuento = (formData.get("motivo_descuento") as string) || null;
   const itemsRaw = String(formData.get("items") ?? "[]");
   const items: LineaPedido[] = JSON.parse(itemsRaw).filter(
     (i: LineaPedido) => i.producto_id && i.cantidad > 0
@@ -28,6 +41,11 @@ export async function crearPedido(formData: FormData) {
 
   if (!clienteId) throw new Error("Debes seleccionar un cliente");
   if (items.length === 0) throw new Error("Agrega al menos un producto al pedido");
+
+  const precioListaMap = await obtenerPreciosLista(
+    supabase,
+    items.map((i) => i.producto_id)
+  );
 
   const { data: pedido, error } = await supabase
     .from("pedidos")
@@ -37,6 +55,7 @@ export async function crearPedido(formData: FormData) {
       fecha_pedido: hoyChile(),
       fecha_entrega: fechaEntrega,
       notas,
+      motivo_descuento: motivoDescuento,
     })
     .select("id")
     .single();
@@ -51,6 +70,7 @@ export async function crearPedido(formData: FormData) {
       producto_id: i.producto_id,
       cantidad: i.cantidad,
       precio_unitario: i.precio_unitario,
+      precio_lista: precioListaMap.get(i.producto_id) ?? i.precio_unitario,
     }))
   );
 
@@ -75,6 +95,7 @@ export async function editarPedido(pedidoId: string, formData: FormData) {
   const clienteId = String(formData.get("cliente_id"));
   const fechaEntrega = (formData.get("fecha_entrega") as string) || null;
   const notas = (formData.get("notas") as string) || null;
+  const motivoDescuento = (formData.get("motivo_descuento") as string) || null;
   const itemsRaw = String(formData.get("items") ?? "[]");
   const items: LineaPedido[] = JSON.parse(itemsRaw).filter(
     (i: LineaPedido) => i.producto_id && i.cantidad > 0
@@ -85,16 +106,29 @@ export async function editarPedido(pedidoId: string, formData: FormData) {
 
   const { error: updateError } = await supabase
     .from("pedidos")
-    .update({ cliente_id: clienteId, fecha_entrega: fechaEntrega, notas })
+    .update({
+      cliente_id: clienteId,
+      fecha_entrega: fechaEntrega,
+      notas,
+      motivo_descuento: motivoDescuento,
+    })
     .eq("id", pedidoId);
 
   if (updateError) {
     throw new Error("No se pudo actualizar el pedido: " + updateError.message);
   }
 
+  const precioListaMap = await obtenerPreciosLista(
+    supabase,
+    items.map((i) => i.producto_id)
+  );
+
   const { error: itemsError } = await supabase.rpc("editar_items_pedido", {
     p_pedido_id: pedidoId,
-    p_items: items,
+    p_items: items.map((i) => ({
+      ...i,
+      precio_lista: precioListaMap.get(i.producto_id) ?? i.precio_unitario,
+    })),
   });
 
   if (itemsError) {
