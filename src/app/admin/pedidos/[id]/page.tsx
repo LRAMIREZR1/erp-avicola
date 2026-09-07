@@ -5,6 +5,7 @@ import { formatCLP, formatFecha } from "@/lib/format";
 import EstadoSelector from "@/components/EstadoSelector";
 import EstadoBadge from "@/components/EstadoBadge";
 import BorrarPedidoButton from "@/components/BorrarPedidoButton";
+import RestaurarPedidoButton from "@/components/RestaurarPedidoButton";
 import EstadoPagoToggle from "@/components/EstadoPagoToggle";
 import { requireRol } from "@/lib/roles";
 
@@ -61,20 +62,26 @@ export default async function DetallePedidoPage({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {rol === "administrador" ? (
+          {rol === "administrador" && pedido.estado !== "eliminado" ? (
             <EstadoSelector pedidoId={pedido.id} estado={pedido.estado} />
           ) : (
             <EstadoBadge estado={pedido.estado} />
           )}
-          {(rol === "administrador" || pedido.estado === "pendiente") && (
-            <Link
-              href={`/admin/pedidos/${pedido.id}/editar`}
-              className="text-xs font-medium text-amber-700 hover:underline"
-            >
-              Editar
-            </Link>
-          )}
-          {rol === "administrador" && <BorrarPedidoButton pedidoId={pedido.id} />}
+          {pedido.estado !== "eliminado" &&
+            (rol === "administrador" || pedido.estado === "pendiente") && (
+              <Link
+                href={`/admin/pedidos/${pedido.id}/editar`}
+                className="text-xs font-medium text-amber-700 hover:underline"
+              >
+                Editar
+              </Link>
+            )}
+          {rol === "administrador" &&
+            (pedido.estado === "eliminado" ? (
+              <RestaurarPedidoButton pedidoId={pedido.id} />
+            ) : (
+              <BorrarPedidoButton pedidoId={pedido.id} />
+            ))}
         </div>
       </div>
 
