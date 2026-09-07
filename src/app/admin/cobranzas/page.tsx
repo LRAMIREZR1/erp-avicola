@@ -6,6 +6,11 @@ import StatCard from "@/components/StatCard";
 
 export const dynamic = "force-dynamic";
 
+interface ItemDetalle {
+  cantidad: number;
+  productos: { nombre: string } | null;
+}
+
 export default async function CobranzasPage({
   searchParams,
 }: {
@@ -16,7 +21,9 @@ export default async function CobranzasPage({
 
   let query = supabase
     .from("pedidos")
-    .select("id, total, fecha_pedido, fecha_entrega, pagado, fecha_pago, clientes(nombre)")
+    .select(
+      "id, total, fecha_pedido, fecha_entrega, pagado, fecha_pago, clientes(nombre), pedido_items(cantidad, productos(nombre))"
+    )
     .eq("estado", "entregado")
     .order("fecha_entrega", { ascending: false });
 
@@ -80,35 +87,53 @@ export default async function CobranzasPage({
             <tr>
               <th className="px-4 py-3">Cliente</th>
               <th className="px-4 py-3">Entrega</th>
+              <th className="px-4 py-3">Detalle</th>
               <th className="px-4 py-3">Total</th>
               <th className="px-4 py-3">Pago</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-stone-100">
-            {lista.map((p) => (
-              <tr key={p.id} className="hover:bg-stone-50">
-                <td className="px-4 py-3 font-medium text-stone-800">
-                  {(p as unknown as { clientes: { nombre: string } | null }).clientes?.nombre ??
-                    "—"}
-                </td>
-                <td className="px-4 py-3 text-stone-600">
-                  {p.fecha_entrega ? formatFecha(p.fecha_entrega) : formatFecha(p.fecha_pedido)}
-                </td>
-                <td className="px-4 py-3 font-medium text-stone-800">
-                  {formatCLP(Number(p.total))}
-                </td>
-                <td className="px-4 py-3 text-stone-500">
-                  {p.pagado && p.fecha_pago ? `Pagado el ${formatFecha(p.fecha_pago)}` : "Sin pagar"}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <EstadoPagoToggle pedidoId={p.id} pagado={p.pagado} />
-                </td>
-              </tr>
-            ))}
+            {lista.map((p) => {
+              const items = ((p as unknown as { pedido_items: ItemDetalle[] | null }).pedido_items ??
+                []) as ItemDetalle[];
+              return (
+                <tr key={p.id} className="hover:bg-stone-50">
+                  <td className="px-4 py-3 font-medium text-stone-800">
+                    {(p as unknown as { clientes: { nombre: string } | null }).clientes?.nombre ??
+                      "—"}
+                  </td>
+                  <td className="px-4 py-3 text-stone-600">
+                    {p.fecha_entrega ? formatFecha(p.fecha_entrega) : formatFecha(p.fecha_pedido)}
+                  </td>
+                  <td className="px-4 py-3 text-stone-600">
+                    {items.length === 0 ? (
+                      "—"
+                    ) : (
+                      <ul className="space-y-0.5">
+                        {items.map((item, i) => (
+                          <li key={i}>
+                            {item.productos?.nombre ?? "Producto"} × {item.cantidad}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 font-medium text-stone-800">
+                    {formatCLP(Number(p.total))}
+                  </td>
+                  <td className="px-4 py-3 text-stone-500">
+                    {p.pagado && p.fecha_pago ? `Pagado el ${formatFecha(p.fecha_pago)}` : "Sin pagar"}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <EstadoPagoToggle pedidoId={p.id} pagado={p.pagado} />
+                  </td>
+                </tr>
+              );
+            })}
             {lista.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-stone-400">
+                <td colSpan={6} className="px-4 py-8 text-center text-stone-400">
                   No hay pedidos entregados en esta vista
                 </td>
               </tr>
