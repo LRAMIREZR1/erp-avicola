@@ -11,10 +11,14 @@ export default async function EditarPedidoPage({
   const supabase = await createClient();
 
   const [pedidoRes, itemsRes, clientesRes, productosRes] = await Promise.all([
-    supabase.from("pedidos").select("id, cliente_id, fecha_entrega, notas").eq("id", id).single(),
+    supabase
+      .from("pedidos")
+      .select("id, cliente_id, fecha_entrega, notas, motivo_descuento")
+      .eq("id", id)
+      .single(),
     supabase
       .from("pedido_items")
-      .select("producto_id, cantidad, precio_unitario")
+      .select("producto_id, cantidad, precio_unitario, precio_lista")
       .eq("pedido_id", id),
     supabase.from("clientes").select("*").eq("activo", true).order("nombre"),
     supabase.from("productos").select("*").eq("activo", true).order("categoria"),
@@ -34,7 +38,11 @@ export default async function EditarPedidoPage({
           cliente_id: pedidoRes.data.cliente_id,
           fecha_entrega: pedidoRes.data.fecha_entrega,
           notas: pedidoRes.data.notas,
-          items: itemsRes.data ?? [],
+          motivo_descuento: pedidoRes.data.motivo_descuento,
+          items: (itemsRes.data ?? []).map((i) => ({
+            ...i,
+            precio_lista: i.precio_lista ?? i.precio_unitario,
+          })),
         }}
       />
     </div>
