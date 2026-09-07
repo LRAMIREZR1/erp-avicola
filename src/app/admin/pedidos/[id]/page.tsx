@@ -66,12 +66,14 @@ export default async function DetallePedidoPage({
           ) : (
             <EstadoBadge estado={pedido.estado} />
           )}
-          <Link
-            href={`/admin/pedidos/${pedido.id}/editar`}
-            className="text-xs font-medium text-amber-700 hover:underline"
-          >
-            Editar
-          </Link>
+          {(rol === "administrador" || pedido.estado !== "entregado") && (
+            <Link
+              href={`/admin/pedidos/${pedido.id}/editar`}
+              className="text-xs font-medium text-amber-700 hover:underline"
+            >
+              Editar
+            </Link>
+          )}
           {rol === "administrador" && <BorrarPedidoButton pedidoId={pedido.id} />}
         </div>
       </div>
