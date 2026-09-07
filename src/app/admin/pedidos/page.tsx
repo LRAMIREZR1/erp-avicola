@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatCLP, formatFecha } from "@/lib/format";
 import EstadoSelector from "@/components/EstadoSelector";
+import EstadoBadge from "@/components/EstadoBadge";
 import BorrarPedidoButton from "@/components/BorrarPedidoButton";
 import { requireRol } from "@/lib/roles";
 import type { EstadoPedido } from "@/lib/supabase/types";
@@ -99,7 +100,11 @@ export default async function PedidosPage({
                   {formatCLP(Number(p.total))}
                 </td>
                 <td className="px-4 py-3">
-                  <EstadoSelector pedidoId={p.id} estado={p.estado} />
+                  {rol === "administrador" ? (
+                    <EstadoSelector pedidoId={p.id} estado={p.estado} />
+                  ) : (
+                    <EstadoBadge estado={p.estado} />
+                  )}
                 </td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-3">
