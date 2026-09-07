@@ -5,16 +5,21 @@ import { formatCLP, formatFecha } from "@/lib/format";
 import EstadoSelector from "@/components/EstadoSelector";
 import EstadoBadge from "@/components/EstadoBadge";
 import BorrarPedidoButton from "@/components/BorrarPedidoButton";
+import RestaurarPedidoButton from "@/components/RestaurarPedidoButton";
 import { requireRol } from "@/lib/roles";
 import { NOMBRES_ESTADO, type EstadoPedido } from "@/lib/supabase/types";
 
 // Orden operativo: lo que hay que trabajar primero arriba, lo ya cerrado al final.
+// "eliminado" no se agrupa en la vista "Todos" (queda en su propio filtro),
+// pero necesita una entrada igual porque el tipo Record<EstadoPedido, ...>
+// exige las 6 claves.
 const ORDEN_ESTADO: Record<EstadoPedido, number> = {
   pendiente: 0,
   confirmado: 1,
   en_preparacion: 2,
   entregado: 3,
   cancelado: 4,
+  eliminado: 5,
 };
 const ESTADOS_EN_ORDEN: EstadoPedido[] = [
   "pendiente",
@@ -51,6 +56,10 @@ export default async function PedidosPage({
 
   if (estado) {
     query = query.eq("estado", estado);
+  } else {
+    // La vista "Todos" no muestra los eliminados — tienen su propio filtro,
+    // para no ensuciar la lista principal con pedidos ya descartados.
+    query = query.neq("estado", "eliminado");
   }
 
   const { data } = await query;
@@ -78,6 +87,7 @@ export default async function PedidosPage({
     { label: "En preparación", value: "en_preparacion" },
     { label: "Entregados", value: "entregado" },
     { label: "Cancelados", value: "cancelado" },
+    { label: "Eliminados", value: "eliminado" },
   ];
 
   function filaPedido(p: Fila) {
@@ -91,7 +101,7 @@ export default async function PedidosPage({
         </td>
         <td className="px-4 py-3 font-medium text-stone-800">{formatCLP(Number(p.total))}</td>
         <td className="px-4 py-3">
-          {rol === "administrador" ? (
+          {rol === "administrador" && p.estado !== "eliminado" ? (
             <EstadoSelector pedidoId={p.id} estado={p.estado} />
           ) : (
             <EstadoBadge estado={p.estado} />
@@ -102,15 +112,21 @@ export default async function PedidosPage({
             <Link href={`/admin/pedidos/${p.id}`} className="text-amber-700 hover:underline">
               Ver
             </Link>
-            {(rol === "administrador" || p.estado === "pendiente") && (
-              <Link
-                href={`/admin/pedidos/${p.id}/editar`}
-                className="text-amber-700 hover:underline"
-              >
-                Editar
-              </Link>
-            )}
-            {rol === "administrador" && <BorrarPedidoButton pedidoId={p.id} />}
+            {p.estado !== "eliminado" &&
+              (rol === "administrador" || p.estado === "pendiente") && (
+                <Link
+                  href={`/admin/pedidos/${p.id}/editar`}
+                  className="text-amber-700 hover:underline"
+                >
+                  Editar
+                </Link>
+              )}
+            {rol === "administrador" &&
+              (p.estado === "eliminado" ? (
+                <RestaurarPedidoButton pedidoId={p.id} />
+              ) : (
+                <BorrarPedidoButton pedidoId={p.id} />
+              ))}
           </div>
         </td>
       </tr>
