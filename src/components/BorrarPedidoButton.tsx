@@ -8,7 +8,7 @@ export default function BorrarPedidoButton({ pedidoId }: { pedidoId: string }) {
 
   function handleClick() {
     const confirmado = window.confirm(
-      "¿Borrar este pedido? Esta acción no se puede deshacer. Si el pedido tenía stock descontado, se repondrá automáticamente."
+      "¿Eliminar este pedido? Se moverá a \"Eliminados\" y podrás restaurarlo después desde ahí. Si el pedido tenía stock descontado, se repondrá automáticamente."
     );
     if (!confirmado) return;
 
@@ -24,7 +24,7 @@ export default function BorrarPedidoButton({ pedidoId }: { pedidoId: string }) {
       disabled={pending}
       className="text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
     >
-      {pending ? "Borrando..." : "Borrar"}
+      {pending ? "Eliminando..." : "Eliminar"}
     </button>
   );
 }
