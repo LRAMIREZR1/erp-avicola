@@ -81,7 +81,9 @@ export default async function DetallePedidoPage({
                 : "Aún no se ha registrado el pago"}
             </p>
           </div>
-          <EstadoPagoToggle pedidoId={pedido.id} pagado={pedido.pagado} />
+          {rol === "administrador" && (
+            <EstadoPagoToggle pedidoId={pedido.id} pagado={pedido.pagado} />
+          )}
         </div>
       )}
 
