@@ -73,3 +73,9 @@ export async function desactivarProducto(id: string) {
   await supabase.from("productos").update({ activo: false }).eq("id", id);
   revalidatePath("/admin/productos");
 }
+
+export async function borrarHistorialPrecio(id: string, productoId: string) {
+  const supabase = await createClient();
+  await supabase.from("historial_precios").delete().eq("id", id);
+  revalidatePath(`/admin/productos/${productoId}/historial`);
+}
