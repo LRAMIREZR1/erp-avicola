@@ -19,6 +19,7 @@ export async function crearVentaDirecta(formData: FormData) {
 
   const clienteId = String(formData.get("cliente_id"));
   const notas = (formData.get("notas") as string) || null;
+  const motivoDescuento = (formData.get("motivo_descuento") as string) || null;
   const pagado = formData.get("pagado") === "on";
   const itemsRaw = String(formData.get("items") ?? "[]");
   const items: LineaVenta[] = JSON.parse(itemsRaw).filter(
@@ -30,6 +31,13 @@ export async function crearVentaDirecta(formData: FormData) {
 
   const hoy = hoyChile();
 
+  const idsUnicos = [...new Set(items.map((i) => i.producto_id))];
+  const { data: productosData } = await supabase
+    .from("productos")
+    .select("id, precio")
+    .in("id", idsUnicos);
+  const precioListaMap = new Map((productosData ?? []).map((p) => [p.id, Number(p.precio)]));
+
   const { data: pedido, error } = await supabase
     .from("pedidos")
     .insert({
@@ -39,6 +47,7 @@ export async function crearVentaDirecta(formData: FormData) {
       fecha_entrega: hoy,
       notas,
       origen: "venta_directa",
+      motivo_descuento: motivoDescuento,
     })
     .select("id")
     .single();
@@ -53,6 +62,7 @@ export async function crearVentaDirecta(formData: FormData) {
       producto_id: i.producto_id,
       cantidad: i.cantidad,
       precio_unitario: i.precio_unitario,
+      precio_lista: precioListaMap.get(i.producto_id) ?? i.precio_unitario,
     }))
   );
 
