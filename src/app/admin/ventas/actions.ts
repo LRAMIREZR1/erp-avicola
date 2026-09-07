@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { hoyChile } from "@/lib/format";
+import { requireRol } from "@/lib/roles";
 
 interface LineaVenta {
   producto_id: string;
@@ -12,6 +13,7 @@ interface LineaVenta {
 }
 
 export async function crearVentaDirecta(formData: FormData) {
+  await requireRol(["administrador"]);
   const supabase = await createClient();
   const {
     data: { user },
