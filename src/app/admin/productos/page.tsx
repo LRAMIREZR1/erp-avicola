@@ -137,14 +137,24 @@ export default async function ProductosPage() {
             Categorías Segunda / Primera / Extra / Tercera, divididas por formato de venta
           </p>
         </div>
-        {rol === "administrador" && (
-          <Link
-            href="/admin/productos/nuevo"
-            className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800"
-          >
-            + Nuevo producto
-          </Link>
-        )}
+        <div className="flex items-center gap-3">
+          {(rol === "administrador" || rol === "encargado_bodega") && (
+            <Link
+              href="/admin/productos/movimientos"
+              className="text-sm text-amber-700 hover:underline"
+            >
+              Ver historial de stock
+            </Link>
+          )}
+          {rol === "administrador" && (
+            <Link
+              href="/admin/productos/nuevo"
+              className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800"
+            >
+              + Nuevo producto
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="space-y-3">
