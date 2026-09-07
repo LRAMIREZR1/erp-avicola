@@ -66,7 +66,7 @@ export default async function DetallePedidoPage({
           ) : (
             <EstadoBadge estado={pedido.estado} />
           )}
-          {(rol === "administrador" || p.estado === "pendiente") && (
+          {(rol === "administrador" || pedido.estado === "pendiente") && (
             <Link
               href={`/admin/pedidos/${pedido.id}/editar`}
               className="text-xs font-medium text-amber-700 hover:underline"
