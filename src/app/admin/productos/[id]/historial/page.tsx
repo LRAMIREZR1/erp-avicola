@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { formatCLP } from "@/lib/format";
+import { formatCLP, formatFechaHora } from "@/lib/format";
 import { requireRol } from "@/lib/roles";
 
 export default async function HistorialPreciosPage({
@@ -55,7 +55,7 @@ export default async function HistorialPreciosPage({
             {historial.map((h) => (
               <tr key={h.id}>
                 <td className="px-4 py-3 text-stone-600">
-                  {new Date(h.created_at).toLocaleString("es-CL")}
+                  {formatFechaHora(h.created_at)}
                 </td>
                 <td className="px-4 py-3 text-stone-600">
                   {formatCLP(Number(h.precio_anterior))}
