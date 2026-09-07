@@ -142,17 +142,39 @@ export async function editarPedido(pedidoId: string, formData: FormData) {
   redirect(`/admin/pedidos/${pedidoId}`);
 }
 
+// "Borrar" un pedido ya no lo elimina físicamente: lo pasa a un estado
+// especial "eliminado" (recuperable desde el filtro "Eliminados"), guardando
+// en qué estado estaba para poder devolverlo ahí con restaurarPedido. Si el
+// pedido tenía stock comprometido, se repone automáticamente (mismo trigger
+// que usa cancelar); al restaurar, se vuelve a descontar.
 export async function borrarPedido(pedidoId: string) {
   "use server";
   const supabase = await createClient();
-  const { error } = await supabase.from("pedidos").delete().eq("id", pedidoId);
+  const { error } = await supabase.rpc("eliminar_pedido", { p_pedido_id: pedidoId });
 
   if (error) {
-    throw new Error("No se pudo borrar el pedido: " + error.message);
+    throw new Error("No se pudo eliminar el pedido: " + error.message);
   }
 
   revalidatePath("/admin/pedidos");
   revalidatePath("/admin");
   revalidatePath("/admin/productos");
   redirect("/admin/pedidos");
+}
+
+export async function restaurarPedido(pedidoId: string) {
+  "use server";
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("restaurar_pedido", { p_pedido_id: pedidoId });
+
+  if (error) {
+    throw new Error("No se pudo restaurar el pedido: " + error.message);
+  }
+
+  revalidatePath("/admin/pedidos");
+  revalidatePath(`/admin/pedidos/${pedidoId}`);
+  revalidatePath("/admin");
+  revalidatePath("/admin/productos");
+  revalidatePath("/admin/cobranzas");
+  revalidatePath("/admin/reparto");
 }
