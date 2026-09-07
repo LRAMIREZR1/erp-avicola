@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { crearPedido, editarPedido } from "@/app/admin/pedidos/actions";
+import { crearClienteRapido } from "@/app/admin/clientes/actions";
 import { formatCLP } from "@/lib/format";
 import type { Cliente, Producto } from "@/lib/supabase/types";
 
@@ -42,6 +43,54 @@ export default function PedidoForm({
       : [{ producto_id: "", cantidad: 1, precio_unitario: 0, precio_lista: 0 }]
   );
   const [motivoDescuento, setMotivoDescuento] = useState(valoresIniciales?.motivo_descuento ?? "");
+  const [listaClientes, setListaClientes] = useState<Cliente[]>(clientes);
+  const [clienteId, setClienteId] = useState(valoresIniciales?.cliente_id ?? "");
+
+  const [mostrarModalCliente, setMostrarModalCliente] = useState(false);
+  const [creandoCliente, setCreandoCliente] = useState(false);
+  const [errorCliente, setErrorCliente] = useState("");
+  const [nuevoNombre, setNuevoNombre] = useState("");
+  const [nuevoTipo, setNuevoTipo] = useState("minorista");
+  const [nuevoTelefono, setNuevoTelefono] = useState("");
+  const [nuevoDireccion, setNuevoDireccion] = useState("");
+  const [nuevaZona, setNuevaZona] = useState("");
+
+  function cerrarModalCliente() {
+    setMostrarModalCliente(false);
+    setErrorCliente("");
+    setNuevoNombre("");
+    setNuevoTipo("minorista");
+    setNuevoTelefono("");
+    setNuevoDireccion("");
+    setNuevaZona("");
+  }
+
+  async function handleCrearCliente() {
+    if (!nuevoNombre.trim()) {
+      setErrorCliente("El nombre es obligatorio");
+      return;
+    }
+    setCreandoCliente(true);
+    setErrorCliente("");
+    try {
+      const formData = new FormData();
+      formData.set("nombre", nuevoNombre.trim());
+      formData.set("tipo", nuevoTipo);
+      formData.set("telefono", nuevoTelefono);
+      formData.set("direccion", nuevoDireccion);
+      formData.set("zona_entrega", nuevaZona);
+      const cliente = (await crearClienteRapido(formData)) as Cliente;
+      setListaClientes((prev) =>
+        [...prev, cliente].sort((a, b) => a.nombre.localeCompare(b.nombre))
+      );
+      setClienteId(cliente.id);
+      cerrarModalCliente();
+    } catch (err) {
+      setErrorCliente(err instanceof Error ? err.message : "No se pudo crear el cliente");
+    } finally {
+      setCreandoCliente(false);
+    }
+  }
 
   const total = useMemo(
     () => lineas.reduce((acc, l) => acc + l.cantidad * l.precio_unitario, 0),
@@ -80,19 +129,30 @@ export default function PedidoForm({
   const accion = modo === "editar" && pedidoId ? editarPedido.bind(null, pedidoId) : crearPedido;
 
   return (
+    <>
     <form action={accion} className="max-w-2xl space-y-5">
       <input type="hidden" name="items" value={JSON.stringify(lineas)} />
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-stone-700">Cliente *</label>
+        <div className="mb-1 flex items-center justify-between">
+          <label className="block text-sm font-medium text-stone-700">Cliente *</label>
+          <button
+            type="button"
+            onClick={() => setMostrarModalCliente(true)}
+            className="text-xs font-medium text-amber-700 hover:underline"
+          >
+            + Crear cliente
+          </button>
+        </div>
         <select
           name="cliente_id"
           required
-          defaultValue={valoresIniciales?.cliente_id ?? ""}
+          value={clienteId}
+          onChange={(e) => setClienteId(e.target.value)}
           className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
         >
           <option value="">Selecciona un cliente</option>
-          {clientes.map((c) => (
+          {listaClientes.map((c) => (
             <option key={c.id} value={c.id}>
               {c.nombre} {c.tipo === "b2b" ? "(B2B)" : ""}
             </option>
@@ -234,5 +294,100 @@ export default function PedidoForm({
         {modo === "editar" ? "Guardar cambios" : "Crear pedido"}
       </button>
     </form>
+
+    {mostrarModalCliente && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-lg">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-stone-800">Nuevo cliente</h2>
+            <button
+              type="button"
+              onClick={cerrarModalCliente}
+              className="text-stone-400 hover:text-stone-600"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-stone-700">Nombre *</label>
+              <input
+                autoFocus
+                value={nuevoNombre}
+                onChange={(e) => setNuevoNombre(e.target.value)}
+                placeholder="Hotel Plaza / Juan Pérez"
+                className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-stone-700">Tipo</label>
+              <select
+                value={nuevoTipo}
+                onChange={(e) => setNuevoTipo(e.target.value)}
+                className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
+              >
+                <option value="minorista">Minorista (bandejas)</option>
+                <option value="b2b">B2B (hotel, hospital, gran volumen)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-stone-700">
+                Teléfono / WhatsApp
+              </label>
+              <input
+                value={nuevoTelefono}
+                onChange={(e) => setNuevoTelefono(e.target.value)}
+                className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-stone-700">Dirección</label>
+              <input
+                value={nuevoDireccion}
+                onChange={(e) => setNuevoDireccion(e.target.value)}
+                className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-stone-700">
+                Zona de entrega
+              </label>
+              <input
+                value={nuevaZona}
+                onChange={(e) => setNuevaZona(e.target.value)}
+                placeholder="San Clemente centro, Talca, etc."
+                className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
+              />
+            </div>
+
+            {errorCliente && <p className="text-xs text-red-600">{errorCliente}</p>}
+          </div>
+
+          <div className="mt-4 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={cerrarModalCliente}
+              className="rounded-lg px-3 py-2 text-sm text-stone-600 hover:bg-stone-100"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleCrearCliente}
+              disabled={creandoCliente}
+              className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800 disabled:opacity-60"
+            >
+              {creandoCliente ? "Guardando..." : "Guardar cliente"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
