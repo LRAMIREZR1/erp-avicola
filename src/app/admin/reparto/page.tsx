@@ -134,15 +134,10 @@ export default async function RepartoPage() {
       <div className="hidden print:block">
         <h1 className="text-lg font-semibold text-stone-800">Carga para reparto</h1>
         <p className="text-sm text-stone-500">
-                              {new Intl.DateTimeFormat("es-CL", {
+          {new Intl.DateTimeFormat("es-CL", {
             dateStyle: "full",
             timeZone: "America/Santiago",
           }).format(new Date())}
-            dateStyle: "full",
-            timeZone: "America/Santiago",
-          }).format(new Date())}
-
-          
         </p>
       </div>
 
