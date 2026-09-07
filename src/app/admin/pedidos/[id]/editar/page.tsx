@@ -28,6 +28,12 @@ export default async function EditarPedidoPage({
 
   if (!pedidoRes.data) notFound();
 
+  // Un pedido eliminado no se edita — primero hay que restaurarlo (ni
+  // siquiera Administrador entra aquí en ese caso).
+  if (pedidoRes.data.estado === "eliminado") {
+    redirect(`/admin/pedidos/${id}`);
+  }
+
   if (rol === "vendedor" && pedidoRes.data.estado !== "pendiente") {
     redirect(`/admin/pedidos/${id}`);
   }
