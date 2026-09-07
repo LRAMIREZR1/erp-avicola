@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatCLP, formatFechaHora } from "@/lib/format";
 import { requireRol } from "@/lib/roles";
+import BorrarHistorialPrecioButton from "@/components/BorrarHistorialPrecioButton";
 
 export default async function HistorialPreciosPage({
   params,
@@ -49,6 +50,7 @@ export default async function HistorialPreciosPage({
               <th className="px-4 py-3">Precio anterior</th>
               <th className="px-4 py-3">Precio nuevo</th>
               <th className="px-4 py-3">Cambiado por</th>
+              <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-stone-100">
@@ -67,11 +69,14 @@ export default async function HistorialPreciosPage({
                   {(h as unknown as { vendedores: { nombre: string } | null }).vendedores
                     ?.nombre ?? "—"}
                 </td>
+                <td className="px-4 py-3 text-right">
+                  <BorrarHistorialPrecioButton historialId={h.id} productoId={id} />
+                </td>
               </tr>
             ))}
             {historial.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-stone-400">
+                <td colSpan={5} className="px-4 py-8 text-center text-stone-400">
                   Aún no hay cambios de precio registrados
                 </td>
               </tr>
