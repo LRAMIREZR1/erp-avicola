@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { hoyChile } from "@/lib/format";
 import type { EstadoPedido } from "@/lib/supabase/types";
 
 interface LineaPedido {
@@ -33,6 +34,7 @@ export async function crearPedido(formData: FormData) {
     .insert({
       cliente_id: clienteId,
       vendedor_id: user?.id ?? null,
+      fecha_pedido: hoyChile(),
       fecha_entrega: fechaEntrega,
       notas,
     })
