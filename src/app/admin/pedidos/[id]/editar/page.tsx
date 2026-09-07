@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import PedidoForm from "@/components/PedidoForm";
 import { requireRol } from "@/lib/roles";
@@ -8,14 +8,14 @@ export default async function EditarPedidoPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireRol(["administrador", "vendedor"]);
+  const rol = await requireRol(["administrador", "vendedor"]);
   const { id } = await params;
   const supabase = await createClient();
 
   const [pedidoRes, itemsRes, clientesRes, productosRes] = await Promise.all([
     supabase
       .from("pedidos")
-      .select("id, cliente_id, fecha_entrega, notas, motivo_descuento")
+      .select("id, estado, cliente_id, fecha_entrega, notas, motivo_descuento")
       .eq("id", id)
       .single(),
     supabase
@@ -27,6 +27,10 @@ export default async function EditarPedidoPage({
   ]);
 
   if (!pedidoRes.data) notFound();
+
+  if (rol === "vendedor" && pedidoRes.data.estado === "entregado") {
+    redirect(`/admin/pedidos/${id}`);
+  }
 
   return (
     <div className="space-y-4">
