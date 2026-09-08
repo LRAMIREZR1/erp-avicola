@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { diaChileDe, formatFecha, hoyChile } from "@/lib/format";
 import { requireRol } from "@/lib/roles";
 import { registrarProduccion } from "@/app/admin/produccion/actions";
+import StatCard from "@/components/StatCard";
 import {
   NOMBRES_CATEGORIA,
   NOMBRES_FORMATO,
@@ -29,6 +30,12 @@ function haceDias(dias: number) {
   const d = new Date();
   d.setDate(d.getDate() - dias);
   return d.toISOString();
+}
+
+function haceDiasFecha(dias: number) {
+  const d = new Date();
+  d.setDate(d.getDate() - dias);
+  return d.toISOString().slice(0, 10);
 }
 
 function TablaProduccion({
@@ -100,7 +107,7 @@ export default async function ProduccionPage({
   const supabase = await createClient();
   const hoy = hoyChile();
 
-  const [{ data: productos }, { data: movimientos }] = await Promise.all([
+  const [{ data: productos }, { data: movimientos }, { data: mermasData }] = await Promise.all([
     supabase.from("productos").select("*").eq("activo", true),
     supabase
       .from("movimientos_stock")
@@ -108,6 +115,11 @@ export default async function ProduccionPage({
       .eq("motivo", MOTIVO_PRODUCCION)
       .gte("created_at", haceDias(13))
       .order("created_at", { ascending: false }),
+    supabase
+      .from("mermas_produccion")
+      .select("fecha, cantidad")
+      .gte("fecha", haceDiasFecha(13))
+      .order("fecha", { ascending: false }),
   ]);
 
   const todos = [...(productos ?? [])].sort((a, b) => {
@@ -124,8 +136,17 @@ export default async function ProduccionPage({
     const dia = diaChileDe(m.created_at);
     totalPorDia.set(dia, (totalPorDia.get(dia) ?? 0) + m.cantidad);
   }
-  const diasOrdenados = [...totalPorDia.keys()].sort((a, b) => b.localeCompare(a));
+
+  const mermaPorDia = new Map<string, number>();
+  for (const m of mermasData ?? []) {
+    mermaPorDia.set(m.fecha, (mermaPorDia.get(m.fecha) ?? 0) + m.cantidad);
+  }
+
+  const diasOrdenados = [...new Set([...totalPorDia.keys(), ...mermaPorDia.keys()])].sort((a, b) =>
+    b.localeCompare(a)
+  );
   const totalHoy = totalPorDia.get(hoy) ?? 0;
+  const mermaHoy = mermaPorDia.get(hoy) ?? 0;
 
   return (
     <div className="space-y-6">
@@ -151,12 +172,18 @@ export default async function ProduccionPage({
         </div>
       )}
 
-      <div className="rounded-2xl border border-stone-200 bg-white p-4">
-        <p className="mb-3 text-sm font-medium text-stone-700">
-          Producción de hoy ({formatFecha(hoy)})
-        </p>
-        <p className="text-2xl font-semibold text-stone-800">{totalHoy} unidades</p>
-        <p className="text-xs text-stone-400">ya registradas hoy en el sistema</p>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <StatCard
+          label={`Producción de hoy (${formatFecha(hoy)})`}
+          value={`${totalHoy} unidades`}
+          hint="ya registradas hoy en el sistema"
+        />
+        <StatCard
+          label="Huevos rotos hoy"
+          value={`${mermaHoy} unidades`}
+          tone={mermaHoy > 0 ? "danger" : "default"}
+          hint="no salen al mercado"
+        />
       </div>
 
       <form action={registrarProduccion} className="space-y-6">
@@ -170,6 +197,31 @@ export default async function ProduccionPage({
           <TablaProduccion productos={cajas} mostrarFormato={true} />
         </div>
 
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold text-stone-700">
+              Huevos rotos (no salen al mercado)
+            </h2>
+            <p className="text-xs text-stone-400">
+              Se dejan aparte sin clasificar por tamaño, solo se cuenta el total del día — no
+              afectan el stock de ningún producto, solo quedan registrados como pérdida.
+            </p>
+          </div>
+          <div className="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50/40 p-4">
+            <label htmlFor="merma" className="text-sm font-medium text-stone-800">
+              Total de huevos rotos hoy
+            </label>
+            <input
+              id="merma"
+              type="number"
+              name="merma"
+              min={0}
+              placeholder="0"
+              className="w-28 rounded-lg border border-red-300 px-2 py-1 text-sm focus:border-red-600 focus:outline-none"
+            />
+          </div>
+        </div>
+
         <button
           type="submit"
           className="rounded-lg bg-amber-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-amber-800"
@@ -177,14 +229,15 @@ export default async function ProduccionPage({
           Registrar producción de hoy
         </button>
         <p className="text-xs text-stone-400">
-          Deja en blanco (o en 0) los productos que hoy no tuvieron producción. Si te equivocaste
-          en una cantidad, corrígelo con &quot;Ajustar stock&quot; en Productos y stock.
+          Deja en blanco (o en 0) lo que hoy no tuvo movimiento. Si te equivocaste en una cantidad
+          ya registrada, corrígelo con &quot;Ajustar stock&quot; en Productos y stock (para
+          producción) o pide a un administrador que revise el historial (para mermas).
         </p>
       </form>
 
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
         <div className="mb-3 flex items-center justify-between">
-          <p className="text-sm font-medium text-stone-700">Producción de los últimos 14 días</p>
+          <p className="text-sm font-medium text-stone-700">Últimos 14 días</p>
           <Link
             href="/admin/productos/movimientos"
             className="text-sm text-amber-700 hover:underline"
@@ -193,13 +246,16 @@ export default async function ProduccionPage({
           </Link>
         </div>
         {diasOrdenados.length === 0 ? (
-          <p className="py-4 text-center text-sm text-stone-400">Aún no hay producción registrada</p>
+          <p className="py-4 text-center text-sm text-stone-400">
+            Aún no hay producción ni mermas registradas
+          </p>
         ) : (
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="text-xs uppercase text-stone-500">
                 <th className="pb-2 font-medium">Día</th>
                 <th className="pb-2 text-right font-medium">Total producido</th>
+                <th className="pb-2 text-right font-medium">Huevos rotos</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
@@ -214,7 +270,10 @@ export default async function ProduccionPage({
                     )}
                   </td>
                   <td className="py-2 text-right font-semibold text-stone-800">
-                    {totalPorDia.get(dia)} unidades
+                    {totalPorDia.get(dia) ?? 0} unidades
+                  </td>
+                  <td className="py-2 text-right font-semibold text-red-600">
+                    {mermaPorDia.get(dia) ?? 0} unidades
                   </td>
                 </tr>
               ))}
