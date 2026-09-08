@@ -243,15 +243,18 @@ export default async function DashboardPage() {
         </div>
         <div className="divide-y divide-stone-100">
           {(ultimosPedidos.data ?? []).map((p) => (
-            <div key={p.id} className="flex items-center justify-between py-2 text-sm">
-              <span className="text-stone-700">
+            <div
+              key={p.id}
+              className="flex flex-col gap-0.5 py-2 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+            >
+              <span className="min-w-0 truncate text-stone-700">
                 {(p as unknown as { clientes: { nombre: string } | null }).clientes?.nombre ??
                   "Cliente"}
               </span>
-              <span className="text-stone-500">
-                {NOMBRES_ESTADO[p.estado as EstadoPedido]}
-              </span>
-              <span className="font-medium text-stone-800">{formatCLP(Number(p.total))}</span>
+              <div className="flex items-center justify-between gap-3 sm:justify-end sm:gap-4">
+                <span className="text-stone-500">{NOMBRES_ESTADO[p.estado as EstadoPedido]}</span>
+                <span className="font-medium text-stone-800">{formatCLP(Number(p.total))}</span>
+              </div>
             </div>
           ))}
           {(ultimosPedidos.data ?? []).length === 0 && (
