@@ -1,10 +1,16 @@
 import { Fragment } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { diaChileDe, formatFecha, formatFechaHora } from "@/lib/format";
+import { diaChileDe, formatCLP, formatFecha, formatFechaHora } from "@/lib/format";
 import { requireRol } from "@/lib/roles";
 import { NOMBRES_CATEGORIA, NOMBRES_FORMATO, type Categoria, type Formato } from "@/lib/supabase/types";
 import EliminarMovimientoButton from "@/components/EliminarMovimientoButton";
+import StatCard from "@/components/StatCard";
+
+// Motivo fijo que se usa para marcar una pérdida por huevos rotos, separado
+// de "Ajuste manual" (recuento, corrección, etc). Se elige desde el select
+// del formulario "Ajustar stock" en Productos y stock.
+const MOTIVO_MERMA = "Merma / quiebre";
 
 function hace(dias: number) {
   const d = new Date();
@@ -41,7 +47,7 @@ interface Movimiento {
   motivo: string | null;
   created_at: string;
   pedido_id: string | null;
-  productos: { nombre: string; categoria: string; formato: string } | null;
+  productos: { nombre: string; categoria: string; formato: string; precio: number } | null;
   vendedores: { nombre: string } | null;
 }
 
@@ -59,13 +65,20 @@ export default async function MovimientosStockPage({
   const { data } = await supabase
     .from("movimientos_stock")
     .select(
-      "id, tipo, cantidad, motivo, created_at, pedido_id, productos(nombre, categoria, formato), vendedores(nombre)"
+      "id, tipo, cantidad, motivo, created_at, pedido_id, productos(nombre, categoria, formato, precio), vendedores(nombre)"
     )
     .gte("created_at", `${desde}T00:00:00`)
     .lte("created_at", `${hasta}T23:59:59`)
     .order("created_at", { ascending: false });
 
   const movimientos = (data ?? []) as unknown as Movimiento[];
+
+  const mermas = movimientos.filter((m) => m.motivo === MOTIVO_MERMA);
+  const unidadesMerma = mermas.reduce((acc, m) => acc + Math.abs(m.cantidad), 0);
+  const valorMerma = mermas.reduce(
+    (acc, m) => acc + Math.abs(m.cantidad) * (m.productos?.precio ?? 0),
+    0
+  );
 
   const porDia = new Map<string, Movimiento[]>();
   for (const m of movimientos) {
@@ -115,7 +128,18 @@ export default async function MovimientosStockPage({
         </button>
       </form>
 
-      <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
+      <StatCard
+        label="Mermas en este período"
+        value={`${unidadesMerma} unidades`}
+        tone={unidadesMerma > 0 ? "danger" : "default"}
+        hint={
+          unidadesMerma > 0
+            ? `≈ ${formatCLP(valorMerma)} a precio de venta actual`
+            : "Sin mermas registradas en este rango de fechas"
+        }
+      />
+
+      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table className="w-full text-left text-sm">
           <thead className="bg-stone-200 text-xs font-semibold uppercase tracking-wide text-stone-600">
             <tr>
@@ -142,8 +166,10 @@ export default async function MovimientosStockPage({
                       {grupo.length === 1 ? "" : "s"}
                     </td>
                   </tr>
-                  {grupo.map((m) => (
-                    <tr key={m.id} className="hover:bg-stone-50">
+                  {grupo.map((m) => {
+                    const esMerma = m.motivo === MOTIVO_MERMA;
+                    return (
+                    <tr key={m.id} className={`hover:bg-stone-50 ${esMerma ? "bg-red-50/60" : ""}`}>
                       <td className="px-4 py-3 font-medium text-stone-800">
                         {m.productos?.nombre ?? "Producto"}
                         <span className="ml-1 font-normal text-stone-400">
@@ -159,10 +185,12 @@ export default async function MovimientosStockPage({
                       <td className="px-4 py-3">
                         <span
                           className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                            COLORES_TIPO[m.tipo] ?? "bg-stone-100 text-stone-700"
+                            esMerma
+                              ? "bg-red-200 text-red-800"
+                              : COLORES_TIPO[m.tipo] ?? "bg-stone-100 text-stone-700"
                           }`}
                         >
-                          {NOMBRES_TIPO[m.tipo] ?? m.tipo}
+                          {esMerma ? "Merma" : NOMBRES_TIPO[m.tipo] ?? m.tipo}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-stone-800">
@@ -194,7 +222,8 @@ export default async function MovimientosStockPage({
                         </td>
                       )}
                     </tr>
-                  ))}
+                    );
+                  })}
                 </Fragment>
               );
             })}
