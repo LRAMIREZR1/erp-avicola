@@ -84,11 +84,21 @@ export async function crearPedido(formData: FormData) {
 export async function cambiarEstadoPedido(pedidoId: string, estado: EstadoPedido) {
   "use server";
   const supabase = await createClient();
-  await supabase.from("pedidos").update({ estado }).eq("id", pedidoId);
+  await supabase
+    .from("pedidos")
+    .update({
+      estado,
+      // Se fija (o se limpia, si se revierte desde "entregado") el día
+      // calendario real en que se entregó, para el historial de repartos.
+      fecha_entregado: estado === "entregado" ? hoyChile() : null,
+    })
+    .eq("id", pedidoId);
   revalidatePath("/admin/pedidos");
   revalidatePath(`/admin/pedidos/${pedidoId}`);
   revalidatePath("/admin");
   revalidatePath("/admin/productos");
+  revalidatePath("/admin/reparto");
+  revalidatePath("/admin/reparto/historial");
 }
 
 export async function editarPedido(pedidoId: string, formData: FormData) {
