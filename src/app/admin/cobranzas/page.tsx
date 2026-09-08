@@ -83,12 +83,12 @@ export default async function CobranzasPage({
         />
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 overflow-x-auto pb-1">
         {filtros.map((f) => (
           <Link
             key={f.label}
             href={f.value ? `/admin/cobranzas?pago=${f.value}` : "/admin/cobranzas"}
-            className={`rounded-full px-3 py-1 text-xs font-medium ${
+            className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium ${
               pago === f.value || (!pago && !f.value)
                 ? "bg-stone-800 text-white"
                 : "bg-stone-100 text-stone-600 hover:bg-stone-200"
@@ -99,7 +99,7 @@ export default async function CobranzasPage({
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table className="w-full text-left text-sm">
           <thead className="bg-stone-50 text-xs uppercase text-stone-500">
             <tr>
