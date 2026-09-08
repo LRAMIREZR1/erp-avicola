@@ -34,6 +34,7 @@ export async function crearPedido(formData: FormData) {
   const fechaEntrega = (formData.get("fecha_entrega") as string) || null;
   const notas = (formData.get("notas") as string) || null;
   const motivoDescuento = (formData.get("motivo_descuento") as string) || null;
+  const pagado = formData.get("pagado") === "on";
   const itemsRaw = String(formData.get("items") ?? "[]");
   const items: LineaPedido[] = JSON.parse(itemsRaw).filter(
     (i: LineaPedido) => i.producto_id && i.cantidad > 0
@@ -56,6 +57,8 @@ export async function crearPedido(formData: FormData) {
       fecha_entrega: fechaEntrega,
       notas,
       motivo_descuento: motivoDescuento,
+      pagado,
+      fecha_pago: pagado ? hoyChile() : null,
     })
     .select("id")
     .single();
@@ -96,6 +99,7 @@ export async function editarPedido(pedidoId: string, formData: FormData) {
   const fechaEntrega = (formData.get("fecha_entrega") as string) || null;
   const notas = (formData.get("notas") as string) || null;
   const motivoDescuento = (formData.get("motivo_descuento") as string) || null;
+  const pagado = formData.get("pagado") === "on";
   const itemsRaw = String(formData.get("items") ?? "[]");
   const items: LineaPedido[] = JSON.parse(itemsRaw).filter(
     (i: LineaPedido) => i.producto_id && i.cantidad > 0
@@ -104,6 +108,12 @@ export async function editarPedido(pedidoId: string, formData: FormData) {
   if (!clienteId) throw new Error("Debes seleccionar un cliente");
   if (items.length === 0) throw new Error("Agrega al menos un producto al pedido");
 
+  const { data: pedidoActual } = await supabase
+    .from("pedidos")
+    .select("pagado, fecha_pago")
+    .eq("id", pedidoId)
+    .single();
+
   const { error: updateError } = await supabase
     .from("pedidos")
     .update({
@@ -111,6 +121,10 @@ export async function editarPedido(pedidoId: string, formData: FormData) {
       fecha_entrega: fechaEntrega,
       notas,
       motivo_descuento: motivoDescuento,
+      pagado,
+      // Si ya estaba pagado y sigue marcado, se conserva la fecha original
+      // en la que se registró el pago en vez de pisarla con la de hoy.
+      fecha_pago: pagado ? pedidoActual?.fecha_pago ?? hoyChile() : null,
     })
     .eq("id", pedidoId);
 
