@@ -328,4 +328,21 @@ export default async function ReportesPage({
       </div>
 
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
-        <p className="mb-3
+        <p className="mb-3 text-sm font-medium text-stone-700">Descuentos por cliente</p>
+        <div className="divide-y divide-stone-100">
+          {clientesConDescuento.map(([nombre, monto]) => (
+            <div key={nombre} className="flex items-center justify-between py-2 text-sm">
+              <span className="text-stone-600">{nombre}</span>
+              <span className="font-medium text-amber-700">-{formatCLP(monto)}</span>
+            </div>
+          ))}
+          {clientesConDescuento.length === 0 && (
+            <p className="py-4 text-center text-sm text-stone-400">
+              Sin descuentos otorgados en este período
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
