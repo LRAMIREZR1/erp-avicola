@@ -29,16 +29,17 @@ const ESTADOS_EN_ORDEN: EstadoPedido[] = [
   "cancelado",
 ];
 
-// Fondo por sección cuando la vista está agrupada por estado — mismos tonos
-// que EstadoBadge, para que se reconozca el grupo de un vistazo: el
-// encabezado usa el color más saturado y las filas el mismo tono suave.
-const FONDO_GRUPO: Record<EstadoPedido, { header: string; fila: string }> = {
-  pendiente: { header: "bg-stone-100 text-stone-700", fila: "bg-stone-50" },
-  confirmado: { header: "bg-indigo-100 text-indigo-700", fila: "bg-indigo-50" },
-  en_preparacion: { header: "bg-blue-100 text-blue-700", fila: "bg-blue-50" },
-  entregado: { header: "bg-green-100 text-green-700", fila: "bg-green-50" },
-  cancelado: { header: "bg-red-100 text-red-700", fila: "bg-red-50" },
-  eliminado: { header: "bg-stone-700 text-white", fila: "bg-stone-100" },
+// Acento por sección cuando la vista está agrupada por estado — mismos
+// colores que EstadoBadge, para reconocer el grupo de un vistazo, pero sin
+// rellenar toda la fila: solo el encabezado lleva una franja y el texto en
+// color, y las filas de datos quedan blancas para una lectura más limpia.
+const FONDO_GRUPO: Record<EstadoPedido, { texto: string; borde: string }> = {
+  pendiente: { texto: "text-stone-600", borde: "border-stone-400" },
+  confirmado: { texto: "text-indigo-700", borde: "border-indigo-500" },
+  en_preparacion: { texto: "text-blue-700", borde: "border-blue-500" },
+  entregado: { texto: "text-green-700", borde: "border-green-500" },
+  cancelado: { texto: "text-red-700", borde: "border-red-500" },
+  eliminado: { texto: "text-stone-700", borde: "border-stone-500" },
 };
 
 interface Fila {
@@ -102,12 +103,9 @@ export default async function PedidosPage({
     { label: "Eliminados", value: "eliminado" },
   ];
 
-  function filaPedido(p: Fila, fondoFila?: string) {
+  function filaPedido(p: Fila) {
     return (
-      <tr
-        key={p.id}
-        className={fondoFila ? `${fondoFila} hover:brightness-95` : "hover:bg-stone-50"}
-      >
+      <tr key={p.id} className="hover:bg-stone-50">
         <td className="px-4 py-3 font-medium text-stone-800">{p.clientes?.nombre ?? "—"}</td>
         <td className="px-4 py-3 text-stone-600">{p.vendedores?.nombre ?? "—"}</td>
         <td className="px-4 py-3 text-stone-600">{formatFecha(p.fecha_pedido)}</td>
@@ -216,15 +214,15 @@ export default async function PedidosPage({
                   if (grupo.length === 0) return null;
                   return (
                     <Fragment key={est}>
-                      <tr className={FONDO_GRUPO[est].header}>
+                      <tr className="bg-stone-50">
                         <td
                           colSpan={7}
-                          className="px-4 py-2 text-xs font-semibold uppercase tracking-wide"
+                          className={`border-l-4 px-4 py-2 text-xs font-semibold uppercase tracking-wide ${FONDO_GRUPO[est].borde} ${FONDO_GRUPO[est].texto}`}
                         >
                           {NOMBRES_ESTADO[est]} ({grupo.length})
                         </td>
                       </tr>
-                      {grupo.map((p) => filaPedido(p, FONDO_GRUPO[est].fila))}
+                      {grupo.map((p) => filaPedido(p))}
                     </Fragment>
                   );
                 })
