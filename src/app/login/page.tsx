@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -33,8 +34,17 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-stone-100 px-4">
       <div className="w-full max-w-sm rounded-2xl border border-stone-200 bg-white p-8 shadow-sm">
-        <h1 className="text-xl font-semibold text-stone-800">Avícola Doña Idelia</h1>
-        <p className="mb-6 text-sm text-stone-500">Panel de gestión interno</p>
+        <h1 className="flex justify-center">
+          <Image
+            src="/logo-dona-idelia.png"
+            alt="Avícola Doña Idelia"
+            width={390}
+            height={412}
+            priority
+            className="h-28 w-auto"
+          />
+        </h1>
+        <p className="mb-6 text-center text-sm text-stone-500">Panel de gestión interno</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
