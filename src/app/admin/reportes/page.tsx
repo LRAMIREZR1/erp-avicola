@@ -159,7 +159,7 @@ export default async function ReportesPage({
 
   // Producto más vendido dentro de cada categoría (tamaño), para saber qué
   // formato se mueve más en cada una.
-  const porCategoriaProducto = new Map
+  const porCategoriaProducto = new Map<
     Categoria,
     Map<string, { formato: Formato; cantidad: number; total: number }>
   >();
