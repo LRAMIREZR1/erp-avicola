@@ -15,7 +15,14 @@ export default async function ClientesPage({
 
   const supabase = await createClient();
   const [clientesRes, pedidosRes] = await Promise.all([
-    supabase.from("clientes").select("*").eq("activo", !verInactivos).order("nombre"),
+    // Sin filtro por vendedor_id: la política RLS "clientes select" ya deja
+    // pasar solo lo que le corresponde a cada rol (el administrador ve
+    // todos; el vendedor, únicamente los que él mismo creó).
+    supabase
+      .from("clientes")
+      .select("*, vendedores(nombre)")
+      .eq("activo", !verInactivos)
+      .order("nombre"),
     supabase.from("pedidos").select("cliente_id"),
   ]);
 
@@ -30,7 +37,11 @@ export default async function ClientesPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold text-stone-800">Clientes</h1>
-          <p className="text-sm text-stone-500">Clientes B2B y minoristas</p>
+          <p className="text-sm text-stone-500">
+            {rol === "administrador"
+              ? "Clientes B2B y minoristas — de todos los vendedores"
+              : "Tus clientes B2B y minoristas"}
+          </p>
         </div>
         <Link
           href="/admin/clientes/nuevo"
@@ -71,6 +82,7 @@ export default async function ClientesPage({
               <th className="px-4 py-3">Tipo</th>
               <th className="px-4 py-3">Teléfono</th>
               <th className="px-4 py-3">Zona de entrega</th>
+              {rol === "administrador" && <th className="px-4 py-3">Vendedor</th>}
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
@@ -93,6 +105,12 @@ export default async function ClientesPage({
                   </td>
                   <td className="px-4 py-3 text-stone-600">{c.telefono ?? "—"}</td>
                   <td className="px-4 py-3 text-stone-600">{c.zona_entrega ?? "—"}</td>
+                  {rol === "administrador" && (
+                    <td className="px-4 py-3 text-stone-600">
+                      {(c as unknown as { vendedores: { nombre: string } | null }).vendedores
+                        ?.nombre ?? "Sin asignar"}
+                    </td>
+                  )}
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-3">
                       <Link
@@ -124,7 +142,10 @@ export default async function ClientesPage({
             })}
             {clientes.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-stone-400">
+                <td
+                  colSpan={rol === "administrador" ? 6 : 5}
+                  className="px-4 py-8 text-center text-stone-400"
+                >
                   {verInactivos
                     ? "No hay clientes desactivados"
                     : "Aún no hay clientes registrados"}
