@@ -62,6 +62,7 @@ export interface Pedido {
   estado: EstadoPedido;
   fecha_pedido: string;
   fecha_entrega: string | null;
+  fecha_entregado: string | null;
   notas: string | null;
   total: number;
   pagado: boolean;
