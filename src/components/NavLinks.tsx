@@ -13,6 +13,11 @@ interface NavLink {
 interface NavSeccion {
   titulo: string | null;
   links: NavLink[];
+  // Clases del recuadro y del título de la sección. Cada sección tiene su
+  // propio color (más oscuro que un simple bg-stone-50) para que se
+  // distingan de un vistazo, sin tener que leer el texto.
+  caja?: string;
+  tituloColor?: string;
 }
 
 const SECCIONES: NavSeccion[] = [
@@ -22,6 +27,8 @@ const SECCIONES: NavSeccion[] = [
   },
   {
     titulo: "Ventas",
+    caja: "border-sky-300 bg-sky-100",
+    tituloColor: "text-sky-800",
     links: [
       { href: "/admin/pedidos", label: "Pedidos", roles: ["administrador", "vendedor"] },
       { href: "/admin/ventas", label: "Venta directa", roles: ["administrador"] },
@@ -31,6 +38,8 @@ const SECCIONES: NavSeccion[] = [
   },
   {
     titulo: "Operación",
+    caja: "border-amber-300 bg-amber-100",
+    tituloColor: "text-amber-800",
     links: [
       {
         href: "/admin/produccion",
@@ -51,6 +60,8 @@ const SECCIONES: NavSeccion[] = [
   },
   {
     titulo: "Administración",
+    caja: "border-slate-300 bg-slate-200",
+    tituloColor: "text-slate-700",
     links: [
       { href: "/admin/reportes", label: "Reportes", roles: ["administrador"] },
       { href: "/admin/usuarios", label: "Usuarios", roles: ["administrador"] },
@@ -72,12 +83,14 @@ export default function NavLinks({ rol }: { rol: Rol }) {
             key={seccion.titulo ?? `seccion-${i}`}
             className={
               seccion.titulo
-                ? "flex flex-col gap-1 rounded-xl border border-stone-200 bg-stone-50 p-2"
+                ? `flex flex-col gap-1 rounded-xl border p-2 ${seccion.caja}`
                 : "flex flex-col gap-1"
             }
           >
             {seccion.titulo && (
-              <p className="px-1 pb-1 text-xs font-bold uppercase tracking-wide text-stone-500">
+              <p
+                className={`px-1 pb-1 text-xs font-bold uppercase tracking-wide ${seccion.tituloColor}`}
+              >
                 {seccion.titulo}
               </p>
             )}
@@ -91,7 +104,9 @@ export default function NavLinks({ rol }: { rol: Rol }) {
                   className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                     active
                       ? "bg-amber-700 text-white"
-                      : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
+                      : seccion.titulo
+                        ? "text-stone-700 hover:bg-white/60 hover:text-stone-900"
+                        : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
                   }`}
                 >
                   {link.label}
