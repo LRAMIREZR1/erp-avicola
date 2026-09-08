@@ -12,6 +12,15 @@ import {
 import { ajustarStock, desactivarProducto } from "@/app/admin/productos/actions";
 import { requireRol } from "@/lib/roles";
 
+// Orden por tamaño del huevo, de mayor a menor — no alfabético.
+const ORDEN_CATEGORIA: Record<Categoria, number> = {
+  super_extra: 0,
+  extra: 1,
+  primera: 2,
+  segunda: 3,
+  tercera: 4,
+};
+
 function TablaProductos({
   productos,
   mostrarFormato,
@@ -26,16 +35,16 @@ function TablaProductos({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
-      <table className="w-full text-left text-sm">
+      <table className="w-full table-fixed text-left text-sm">
         <thead className="bg-stone-200 text-xs font-semibold uppercase tracking-wide text-stone-600">
           <tr>
-            <th className="px-4 py-3">Producto</th>
-            <th className="px-4 py-3">Categoría</th>
-            {mostrarFormato && <th className="px-4 py-3">Formato</th>}
-            <th className="px-4 py-3">Precio</th>
-            <th className="px-4 py-3">Stock</th>
-            {puedeAjustarStock && <th className="px-4 py-3">Ajustar stock</th>}
-            {puedeEditar && <th className="px-4 py-3"></th>}
+            <th className="w-56 px-4 py-3">Producto</th>
+            <th className="w-32 px-4 py-3">Categoría</th>
+            {mostrarFormato && <th className="w-32 px-4 py-3">Formato</th>}
+            <th className="w-28 px-4 py-3">Precio</th>
+            <th className="w-32 px-4 py-3">Stock</th>
+            {puedeAjustarStock && <th className="w-36 px-4 py-3">Ajustar stock</th>}
+            {puedeEditar && <th className="w-24 px-4 py-3"></th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-stone-100">
@@ -121,10 +130,14 @@ export default async function ProductosPage() {
   const { data: productos } = await supabase
     .from("productos")
     .select("*")
-    .eq("activo", true)
-    .order("categoria");
+    .eq("activo", true);
 
-  const todos = productos ?? [];
+  const todos = [...(productos ?? [])].sort((a, b) => {
+    const diff =
+      ORDEN_CATEGORIA[a.categoria as Categoria] - ORDEN_CATEGORIA[b.categoria as Categoria];
+    if (diff !== 0) return diff;
+    return a.nombre.localeCompare(b.nombre);
+  });
   const bandejas = todos.filter((p) => p.formato === "bandeja_30");
   const cajas = todos.filter((p) => p.formato !== "bandeja_30");
 
@@ -134,7 +147,8 @@ export default async function ProductosPage() {
         <div>
           <h1 className="text-lg font-semibold text-stone-800">Productos y stock</h1>
           <p className="text-sm text-stone-500">
-            Categorías Segunda / Primera / Extra / Tercera, divididas por formato de venta
+            Categorías Super Extra / Extra / Primera / Segunda / Tercera, divididas por formato de
+            venta
           </p>
         </div>
         <div className="flex items-center gap-3">
