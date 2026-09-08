@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { diaChileDe, formatFecha, formatFechaHora } from "@/lib/format";
 import { requireRol } from "@/lib/roles";
 import { NOMBRES_CATEGORIA, NOMBRES_FORMATO, type Categoria, type Formato } from "@/lib/supabase/types";
+import EliminarMovimientoButton from "@/components/EliminarMovimientoButton";
 
 function hace(dias: number) {
   const d = new Date();
@@ -49,7 +50,7 @@ export default async function MovimientosStockPage({
 }: {
   searchParams: Promise<{ desde?: string; hasta?: string }>;
 }) {
-  await requireRol(["administrador", "encargado_bodega"]);
+  const rol = await requireRol(["administrador", "encargado_bodega"]);
   const params = await searchParams;
   const desde = params.desde || hace(30);
   const hasta = params.hasta || hoy();
@@ -124,6 +125,7 @@ export default async function MovimientosStockPage({
               <th className="px-4 py-3">Motivo</th>
               <th className="px-4 py-3">Quién</th>
               <th className="px-4 py-3">Hora</th>
+              {rol === "administrador" && <th className="px-4 py-3"></th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-stone-100">
@@ -133,7 +135,7 @@ export default async function MovimientosStockPage({
                 <Fragment key={dia}>
                   <tr className="bg-stone-100">
                     <td
-                      colSpan={6}
+                      colSpan={rol === "administrador" ? 7 : 6}
                       className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-stone-700"
                     >
                       {formatFecha(dia)} · {grupo.length} movimiento
@@ -184,6 +186,13 @@ export default async function MovimientosStockPage({
                         {m.vendedores?.nombre ?? "Sistema"}
                       </td>
                       <td className="px-4 py-3 text-stone-400">{formatFechaHora(m.created_at)}</td>
+                      {rol === "administrador" && (
+                        <td className="px-4 py-3 text-right">
+                          {m.tipo === "ajuste" && (
+                            <EliminarMovimientoButton movimientoId={m.id} />
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </Fragment>
@@ -191,7 +200,10 @@ export default async function MovimientosStockPage({
             })}
             {dias.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-stone-400">
+                <td
+                  colSpan={rol === "administrador" ? 7 : 6}
+                  className="px-4 py-8 text-center text-stone-400"
+                >
                   No hay movimientos de stock en este período
                 </td>
               </tr>
