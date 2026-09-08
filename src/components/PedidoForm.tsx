@@ -18,6 +18,7 @@ interface ValoresIniciales {
   fecha_entrega: string | null;
   notas: string | null;
   motivo_descuento?: string | null;
+  pagado?: boolean;
   items: Linea[];
 }
 
@@ -45,6 +46,7 @@ export default function PedidoForm({
   const [motivoDescuento, setMotivoDescuento] = useState(valoresIniciales?.motivo_descuento ?? "");
   const [listaClientes, setListaClientes] = useState<Cliente[]>(clientes);
   const [clienteId, setClienteId] = useState(valoresIniciales?.cliente_id ?? "");
+  const [pagado, setPagado] = useState(valoresIniciales?.pagado ?? false);
 
   const [mostrarModalCliente, setMostrarModalCliente] = useState(false);
   const [creandoCliente, setCreandoCliente] = useState(false);
@@ -280,6 +282,17 @@ export default function PedidoForm({
       {descuento <= 0.5 && (
         <input type="hidden" name="motivo_descuento" value="" />
       )}
+
+      <label className="flex items-center gap-2 text-sm text-stone-700">
+        <input
+          type="checkbox"
+          name="pagado"
+          checked={pagado}
+          onChange={(e) => setPagado(e.target.checked)}
+          className="h-4 w-4 rounded border-stone-300"
+        />
+        El cliente ya pagó (efectivo / transferencia en el momento)
+      </label>
 
       <div>
         <label className="mb-1 block text-sm font-medium text-stone-700">Notas</label>
