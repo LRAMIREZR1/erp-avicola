@@ -4,23 +4,10 @@ import { formatCLP, formatFecha } from "@/lib/format";
 import EstadoSelector from "@/components/EstadoSelector";
 import ImprimirButton from "@/components/ImprimirButton";
 import MarcarEntregadoButton from "@/components/MarcarEntregadoButton";
+import TablaConsolidado, { esCaja, type ItemConsolidado } from "@/components/TablaConsolidado";
 import { requireRol } from "@/lib/roles";
-import {
-  NOMBRES_CATEGORIA,
-  NOMBRES_FORMATO,
-  type Categoria,
-  type Formato,
-} from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
-
-interface ItemConsolidado {
-  producto_id: string;
-  nombre: string;
-  categoria: string;
-  formato: string;
-  cantidad: number;
-}
 
 interface PedidoReparto {
   id: string;
@@ -43,48 +30,6 @@ interface PedidoReparto {
       formato: string;
     } | null;
   }[];
-}
-
-function esCaja(formato: string) {
-  return formato !== "bandeja_30";
-}
-
-function TablaConsolidado({ items }: { items: ItemConsolidado[] }) {
-  if (items.length === 0) {
-    return <p className="py-4 text-center text-sm text-stone-400">Nada de esto en esta carga</p>;
-  }
-  return (
-    <div className="overflow-x-auto rounded-xl border border-stone-200 print:overflow-visible print:border-stone-500">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-stone-200 text-xs font-semibold uppercase tracking-wide text-stone-600">
-          <tr>
-            <th className="w-8 px-3 py-2"></th>
-            <th className="px-4 py-2">Producto</th>
-            <th className="px-4 py-2">Categoría</th>
-            <th className="px-4 py-2">Formato</th>
-            <th className="px-4 py-2 text-right">Cantidad a cargar</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-stone-100 print:divide-stone-400">
-          {items.map((item) => (
-            <tr key={item.producto_id}>
-              <td className="px-3 py-2 text-center text-stone-400">☐</td>
-              <td className="px-4 py-2 font-medium text-stone-800">{item.nombre}</td>
-              <td className="px-4 py-2 text-stone-600">
-                {NOMBRES_CATEGORIA[item.categoria as Categoria]}
-              </td>
-              <td className="px-4 py-2 text-stone-600">
-                {NOMBRES_FORMATO[item.formato as Formato]}
-              </td>
-              <td className="px-4 py-2 text-right font-semibold text-stone-800">
-                {item.cantidad}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
 }
 
 export default async function RepartoPage() {
@@ -152,7 +97,15 @@ export default async function RepartoPage() {
             Consolidado de pedidos en preparación, listos para cargar y entregar
           </p>
         </div>
-        <ImprimirButton />
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/reparto/historial"
+            className="text-sm font-medium text-amber-700 hover:underline"
+          >
+            Ver historial de repartos
+          </Link>
+          <ImprimirButton />
+        </div>
       </div>
 
       <div className="hidden print:block">
