@@ -13,6 +13,15 @@ import {
 
 export const dynamic = "force-dynamic";
 
+// Orden por tamaño del huevo, de mayor a menor — no alfabético.
+const ORDEN_CATEGORIA: Record<Categoria, number> = {
+  super_extra: 0,
+  extra: 1,
+  primera: 2,
+  segunda: 3,
+  tercera: 4,
+};
+
 interface ProductoStockBajo {
   id: string;
   nombre: string;
@@ -94,8 +103,12 @@ export default async function DashboardPage() {
   const bandejasStockBajo = productosStockBajo.filter((p) => p.formato === "bandeja_30");
   const cajasStockBajo = productosStockBajo.filter((p) => p.formato !== "bandeja_30");
 
+  const stockOrdenado = [...stockProductos].sort(
+    (a, b) => ORDEN_CATEGORIA[a.categoria as Categoria] - ORDEN_CATEGORIA[b.categoria as Categoria]
+  );
+
   const stockPorCategoria = new Map<string, StockChartDatum>();
-  for (const p of stockProductos) {
+  for (const p of stockOrdenado) {
     const nombreCategoria = NOMBRES_CATEGORIA[p.categoria as Categoria];
     const actual = stockPorCategoria.get(nombreCategoria) ?? {
       categoria: nombreCategoria,
