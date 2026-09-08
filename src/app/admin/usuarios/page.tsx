@@ -29,7 +29,7 @@ export default async function UsuariosPage() {
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table className="w-full text-left text-sm">
           <thead className="bg-stone-50 text-xs uppercase text-stone-500">
             <tr>
