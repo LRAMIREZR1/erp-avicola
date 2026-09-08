@@ -44,3 +44,15 @@ export function formatFechaHora(fechaIso: string): string {
     timeStyle: "short",
   }).format(new Date(fechaIso));
 }
+
+// Cantidad de días completos entre una fecha (YYYY-MM-DD) y hoy, en hora de
+// Chile. Sirve para calcular la antigüedad de una deuda (cuántos días lleva
+// un pedido sin pagarse). Ambas fechas se comparan como medianoche UTC del
+// mismo día calendario, así que el resultado no se ve afectado por la hora
+// del servidor.
+export function diasDesde(fecha: string): number {
+  const hoy = hoyChile();
+  const msPorDia = 24 * 60 * 60 * 1000;
+  const diff = Date.parse(`${hoy}T00:00:00Z`) - Date.parse(`${fecha}T00:00:00Z`);
+  return Math.max(0, Math.round(diff / msPorDia));
+}
