@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { obtenerRolActual } from "@/lib/roles";
 import type { TipoCliente } from "@/lib/supabase/types";
 
 export async function guardarCliente(formData: FormData) {
@@ -24,9 +25,20 @@ export async function guardarCliente(formData: FormData) {
   }
 
   if (id) {
+    // Al editar no se toca el dueño — un cliente ya asignado sigue siendo
+    // de su vendedor (o sin dueño, si así estaba).
     await supabase.from("clientes").update(payload).eq("id", id);
   } else {
-    await supabase.from("clientes").insert(payload);
+    // Si lo crea un vendedor, el cliente queda reservado para él (solo él
+    // lo verá en su lista). Si lo crea el administrador, queda sin dueño —
+    // y por eso ningún vendedor lo ve, solo el administrador.
+    const rol = await obtenerRolActual();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const vendedorId = rol === "vendedor" ? (user?.id ?? null) : null;
+
+    await supabase.from("clientes").insert({ ...payload, vendedor_id: vendedorId });
   }
 
   revalidatePath("/admin/clientes");
@@ -69,12 +81,22 @@ export async function crearClienteRapido(formData: FormData) {
     throw new Error("El nombre del cliente es obligatorio");
   }
 
+  // Mismo criterio que guardarCliente: si lo crea un vendedor, queda
+  // reservado para él; si lo crea el administrador, queda sin dueño (y por
+  // eso ningún vendedor lo ve, solo el administrador).
+  const rol = await obtenerRolActual();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const vendedorId = rol === "vendedor" ? (user?.id ?? null) : null;
+
   const payload = {
     nombre,
     tipo: (formData.get("tipo") as TipoCliente) || "minorista",
     telefono: (formData.get("telefono") as string) || null,
     direccion: (formData.get("direccion") as string) || null,
     zona_entrega: (formData.get("zona_entrega") as string) || null,
+    vendedor_id: vendedorId,
   };
 
   const { data, error } = await supabase.from("clientes").insert(payload).select("*").single();
