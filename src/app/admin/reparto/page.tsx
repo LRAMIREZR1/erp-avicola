@@ -54,7 +54,7 @@ function TablaConsolidado({ items }: { items: ItemConsolidado[] }) {
     return <p className="py-4 text-center text-sm text-stone-400">Nada de esto en esta carga</p>;
   }
   return (
-    <div className="overflow-hidden rounded-xl border border-stone-200 print:border-stone-500">
+    <div className="overflow-x-auto rounded-xl border border-stone-200 print:overflow-visible print:border-stone-500">
       <table className="w-full text-left text-sm">
         <thead className="bg-stone-200 text-xs font-semibold uppercase tracking-wide text-stone-600">
           <tr>
@@ -193,7 +193,7 @@ export default async function RepartoPage() {
 
           {rol !== "encargado_bodega" && (
             <div className="space-y-4">
-              <div className="break-inside-avoid overflow-hidden rounded-2xl border border-stone-200 print:border-stone-500 bg-white">
+              <div className="break-inside-avoid overflow-x-auto rounded-2xl border border-stone-200 print:overflow-visible print:border-stone-500 bg-white">
                 <div className="p-4 pb-3">
                   <p className="text-sm font-medium text-stone-700">
                     Ruta del día ({listaRuta.length} parada{listaRuta.length === 1 ? "" : "s"})
