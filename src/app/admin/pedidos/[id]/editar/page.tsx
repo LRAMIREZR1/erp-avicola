@@ -15,7 +15,7 @@ export default async function EditarPedidoPage({
   const [pedidoRes, itemsRes, clientesRes, productosRes] = await Promise.all([
     supabase
       .from("pedidos")
-      .select("id, estado, cliente_id, fecha_entrega, notas, motivo_descuento")
+      .select("id, estado, cliente_id, fecha_entrega, notas, motivo_descuento, pagado")
       .eq("id", id)
       .single(),
     supabase
@@ -51,6 +51,7 @@ export default async function EditarPedidoPage({
           fecha_entrega: pedidoRes.data.fecha_entrega,
           notas: pedidoRes.data.notas,
           motivo_descuento: pedidoRes.data.motivo_descuento,
+          pagado: pedidoRes.data.pagado,
           items: (itemsRes.data ?? []).map((i) => ({
             ...i,
             precio_lista: i.precio_lista ?? i.precio_unitario,
