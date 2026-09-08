@@ -69,7 +69,7 @@ function TablaAlertaStock({
 }
 
 export default async function DashboardPage() {
-  await requireRol(["administrador", "vendedor"]);
+  const rol = await requireRol(["administrador", "vendedor"]);
   const supabase = await createClient();
   const hoy = hoyChile();
 
@@ -99,10 +99,15 @@ export default async function DashboardPage() {
     // Pedidos ya confirmados/en preparación pero aún no entregados: el
     // stock ya se descontó de "disponible" (trigger al confirmar), pero las
     // cajas siguen físicamente en la bodega hasta que se despachan.
-    supabase
-      .from("pedido_items")
-      .select("cantidad, productos(categoria, formato), pedidos!inner(estado)")
-      .in("pedidos.estado", ["confirmado", "en_preparacion"]),
+    // El gráfico de stock físico es solo para administrador (el vendedor no
+    // lo ve en el Resumen; el encargado de bodega lo ve en Productos y
+    // stock), así que no vale la pena pedirlo si no se va a mostrar.
+    rol === "administrador"
+      ? supabase
+          .from("pedido_items")
+          .select("cantidad, productos(categoria, formato), pedidos!inner(estado)")
+          .in("pedidos.estado", ["confirmado", "en_preparacion"])
+      : Promise.resolve({ data: [] as { cantidad: number; productos: unknown }[] }),
   ]);
 
   const totalHoy = (pedidosHoy.data ?? []).reduce((acc, p) => acc + Number(p.total), 0);
@@ -208,24 +213,26 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      <div className="rounded-2xl border border-stone-200 bg-white p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-stone-700">Stock físico en bodega</p>
-            <p className="text-xs text-stone-400">
-              Incluye lo reservado en pedidos confirmados que aún no se despachan
-            </p>
+      {rol === "administrador" && (
+        <div className="rounded-2xl border border-stone-200 bg-white p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-stone-700">Stock físico en bodega</p>
+              <p className="text-xs text-stone-400">
+                Incluye lo reservado en pedidos confirmados que aún no se despachan
+              </p>
+            </div>
+            <Link href="/admin/produccion" className="text-sm text-amber-700 hover:underline">
+              Producción diaria
+            </Link>
           </div>
-          <Link href="/admin/produccion" className="text-sm text-amber-700 hover:underline">
-            Producción diaria
-          </Link>
+          {datosGraficoFisico.length > 0 ? (
+            <StockFisicoChart data={datosGraficoFisico} />
+          ) : (
+            <p className="py-4 text-center text-sm text-stone-400">Aún no hay productos</p>
+          )}
         </div>
-        {datosGraficoFisico.length > 0 ? (
-          <StockFisicoChart data={datosGraficoFisico} />
-        ) : (
-          <p className="py-4 text-center text-sm text-stone-400">Aún no hay productos</p>
-        )}
-      </div>
+      )}
 
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
         <div className="mb-3 flex items-center justify-between">
