@@ -1,7 +1,6 @@
 import type { Producto } from "@/lib/supabase/types";
 import { guardarProducto } from "@/app/admin/productos/actions";
 
-
 export default function ProductoForm({ producto }: { producto?: Producto }) {
   return (
     <form action={guardarProducto} className="max-w-lg space-y-4">
@@ -25,6 +24,7 @@ export default function ProductoForm({ producto }: { producto?: Producto }) {
           defaultValue={producto?.categoria ?? "primera"}
           className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
         >
+          <option value="super_extra">Super Extra (Jumbo)</option>
           <option value="tercera">Tercera</option>
           <option value="segunda">Segunda</option>
           <option value="primera">Primera</option>
