@@ -42,7 +42,7 @@ export default async function HistorialPreciosPage({
         <p className="text-sm text-stone-500">Precio actual: {formatCLP(producto.precio)}</p>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table className="w-full text-left text-sm">
           <thead className="bg-stone-200 text-xs font-semibold uppercase tracking-wide text-stone-600">
             <tr>
