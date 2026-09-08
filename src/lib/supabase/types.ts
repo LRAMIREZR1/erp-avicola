@@ -37,6 +37,7 @@ export interface Cliente {
   zona_entrega: string | null;
   notas: string | null;
   activo: boolean;
+  vendedor_id: string | null;
   created_at: string;
 }
 
