@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatCLP, hoyChile } from "@/lib/format";
 import StatCard from "@/components/StatCard";
 import StockChart, { type StockChartDatum } from "@/components/StockChart";
+import StockFisicoChart, { type StockFisicoDatum } from "@/components/StockFisicoChart";
 import { requireRol } from "@/lib/roles";
 import {
   NOMBRES_CATEGORIA,
@@ -72,7 +73,7 @@ export default async function DashboardPage() {
   const supabase = await createClient();
   const hoy = hoyChile();
 
-  const [pedidosHoy, pendientes, stockBajo, ultimosPedidos] = await Promise.all([
+  const [pedidosHoy, pendientes, stockBajo, ultimosPedidos, itemsReservados] = await Promise.all([
     supabase
       .from("pedidos")
       .select("total")
@@ -95,6 +96,13 @@ export default async function DashboardPage() {
       .neq("estado", "eliminado")
       .order("created_at", { ascending: false })
       .limit(6),
+    // Pedidos ya confirmados/en preparación pero aún no entregados: el
+    // stock ya se descontó de "disponible" (trigger al confirmar), pero las
+    // cajas siguen físicamente en la bodega hasta que se despachan.
+    supabase
+      .from("pedido_items")
+      .select("cantidad, productos(categoria, formato), pedidos!inner(estado)")
+      .in("pedidos.estado", ["confirmado", "en_preparacion"]),
   ]);
 
   const totalHoy = (pedidosHoy.data ?? []).reduce((acc, p) => acc + Number(p.total), 0);
@@ -123,6 +131,36 @@ export default async function DashboardPage() {
     stockPorCategoria.set(nombreCategoria, actual);
   }
   const datosGrafico = [...stockPorCategoria.values()];
+
+  // Reservado = comprometido en pedidos confirmados/en preparación que aún
+  // no llegan a "entregado". Se agrupa igual que el disponible, por
+  // categoría y formato, para poder sumarlos en el gráfico de stock físico.
+  const reservadoPorCategoria = new Map<string, { bandejas: number; cajas: number }>();
+  for (const item of itemsReservados.data ?? []) {
+    const producto = (
+      item as unknown as { productos: { categoria: Categoria; formato: string } | null }
+    ).productos;
+    if (!producto) continue;
+    const nombreCategoria = NOMBRES_CATEGORIA[producto.categoria];
+    const actual = reservadoPorCategoria.get(nombreCategoria) ?? { bandejas: 0, cajas: 0 };
+    if (producto.formato === "bandeja_30") {
+      actual.bandejas += item.cantidad;
+    } else {
+      actual.cajas += item.cantidad;
+    }
+    reservadoPorCategoria.set(nombreCategoria, actual);
+  }
+
+  const datosGraficoFisico: StockFisicoDatum[] = datosGrafico.map((d) => {
+    const reservado = reservadoPorCategoria.get(d.categoria) ?? { bandejas: 0, cajas: 0 };
+    return {
+      categoria: d.categoria,
+      bandejasDisponible: d.bandejas,
+      bandejasReservado: reservado.bandejas,
+      cajasDisponible: d.cajas,
+      cajasReservado: reservado.cajas,
+    };
+  });
 
   return (
     <div className="space-y-6">
@@ -165,6 +203,25 @@ export default async function DashboardPage() {
         </div>
         {datosGrafico.length > 0 ? (
           <StockChart data={datosGrafico} />
+        ) : (
+          <p className="py-4 text-center text-sm text-stone-400">Aún no hay productos</p>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-stone-200 bg-white p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-stone-700">Stock físico en bodega</p>
+            <p className="text-xs text-stone-400">
+              Incluye lo reservado en pedidos confirmados que aún no se despachan
+            </p>
+          </div>
+          <Link href="/admin/produccion" className="text-sm text-amber-700 hover:underline">
+            Producción diaria
+          </Link>
+        </div>
+        {datosGraficoFisico.length > 0 ? (
+          <StockFisicoChart data={datosGraficoFisico} />
         ) : (
           <p className="py-4 text-center text-sm text-stone-400">Aún no hay productos</p>
         )}
