@@ -34,17 +34,17 @@ function TablaProductos({
   const puedeEditar = rol === "administrador";
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
-      <table className="w-full table-fixed text-left text-sm">
+    <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
+      <table className="w-full text-left text-sm">
         <thead className="bg-stone-200 text-xs font-semibold uppercase tracking-wide text-stone-600">
           <tr>
-            <th className="w-56 px-4 py-3">Producto</th>
-            <th className="w-32 px-4 py-3">Categoría</th>
-            {mostrarFormato && <th className="w-32 px-4 py-3">Formato</th>}
-            <th className="w-28 px-4 py-3">Precio</th>
-            <th className="w-32 px-4 py-3">Stock</th>
-            {puedeAjustarStock && <th className="w-36 px-4 py-3">Ajustar stock</th>}
-            {puedeEditar && <th className="w-24 px-4 py-3"></th>}
+            <th className="min-w-56 px-4 py-3">Producto</th>
+            <th className="min-w-36 px-4 py-3">Categoría</th>
+            {mostrarFormato && <th className="min-w-32 px-4 py-3">Formato</th>}
+            <th className="min-w-28 px-4 py-3">Precio</th>
+            <th className="min-w-32 px-4 py-3">Stock</th>
+            {puedeAjustarStock && <th className="min-w-44 px-4 py-3">Ajustar stock</th>}
+            {puedeEditar && <th className="min-w-36 px-4 py-3"></th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-stone-100">
