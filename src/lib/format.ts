@@ -45,6 +45,17 @@ export function formatFechaHora(fechaIso: string): string {
   }).format(new Date(fechaIso));
 }
 
+// Suma (o resta, con un número negativo) días a una fecha YYYY-MM-DD,
+// devolviendo otra fecha YYYY-MM-DD. Se opera en UTC "de mentira" (la fecha
+// se trata como si fuera medianoche UTC) para no depender de la zona
+// horaria del servidor ni de horarios de verano — es aritmética de
+// calendario pura, no de un instante real.
+export function sumarDias(fecha: string, dias: number): string {
+  const fechaBase = new Date(`${fecha}T00:00:00Z`);
+  fechaBase.setUTCDate(fechaBase.getUTCDate() + dias);
+  return fechaBase.toISOString().slice(0, 10);
+}
+
 // Cantidad de días completos entre una fecha (YYYY-MM-DD) y hoy, en hora de
 // Chile. Sirve para calcular la antigüedad de una deuda (cuántos días lleva
 // un pedido sin pagarse). Ambas fechas se comparan como medianoche UTC del
