@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { formatCLP, formatFecha } from "@/lib/format";
+import { diasDesde, formatCLP, formatFecha } from "@/lib/format";
 import EstadoPagoToggle from "@/components/EstadoPagoToggle";
 import StatCard from "@/components/StatCard";
 import { requireRol } from "@/lib/roles";
@@ -10,6 +10,13 @@ export const dynamic = "force-dynamic";
 interface ItemDetalle {
   cantidad: number;
   productos: { nombre: string } | null;
+}
+
+// Color según urgencia de cobro: entre más días de atraso, más notorio.
+function colorDias(dias: number) {
+  if (dias > 15) return "font-semibold text-red-600";
+  if (dias >= 7) return "font-medium text-amber-600";
+  return "text-stone-500";
 }
 
 export default async function CobranzasPage({
@@ -33,7 +40,16 @@ export default async function CobranzasPage({
   if (pago === "pagado") query = query.eq("pagado", true);
 
   const { data: pedidos } = await query;
-  const lista = pedidos ?? [];
+  let lista = pedidos ?? [];
+
+  // En la vista de pendientes, mostrar primero la deuda más antigua: es la
+  // que hay que priorizar para llamar/cobrar.
+  if (pago === "pendiente") {
+    lista = [...lista].sort(
+      (a, b) =>
+        diasDesde(b.fecha_entrega ?? b.fecha_pedido) - diasDesde(a.fecha_entrega ?? a.fecha_pedido)
+    );
+  }
 
   const pendientes = lista.filter((p) => !p.pagado);
   const pagados = lista.filter((p) => p.pagado);
@@ -91,6 +107,7 @@ export default async function CobranzasPage({
               <th className="px-4 py-3">Entrega</th>
               <th className="px-4 py-3">Detalle</th>
               <th className="px-4 py-3">Total</th>
+              <th className="px-4 py-3">Días</th>
               <th className="px-4 py-3">Pago</th>
               <th className="px-4 py-3"></th>
             </tr>
@@ -99,6 +116,7 @@ export default async function CobranzasPage({
             {lista.map((p) => {
               const items = ((p as unknown as { pedido_items: ItemDetalle[] | null }).pedido_items ??
                 []) as ItemDetalle[];
+              const dias = diasDesde(p.fecha_entrega ?? p.fecha_pedido);
               return (
                 <tr key={p.id} className="hover:bg-stone-50">
                   <td className="px-4 py-3 font-medium text-stone-800">
@@ -124,6 +142,15 @@ export default async function CobranzasPage({
                   <td className="px-4 py-3 font-medium text-stone-800">
                     {formatCLP(Number(p.total))}
                   </td>
+                  <td className="px-4 py-3">
+                    {p.pagado ? (
+                      <span className="text-stone-300">—</span>
+                    ) : (
+                      <span className={colorDias(dias)}>
+                        {dias} día{dias === 1 ? "" : "s"}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-stone-500">
                     {p.pagado && p.fecha_pago ? `Pagado el ${formatFecha(p.fecha_pago)}` : "Sin pagar"}
                   </td>
@@ -145,7 +172,7 @@ export default async function CobranzasPage({
             })}
             {lista.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-stone-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-stone-400">
                   No hay pedidos entregados en esta vista
                 </td>
               </tr>
