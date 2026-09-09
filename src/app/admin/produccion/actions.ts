@@ -43,7 +43,7 @@ export async function registrarProduccion(formData: FormData) {
     (!totalHuevos || totalHuevos <= 0) &&
     (!merma || merma <= 0)
   ) {
-    redirect("/admin/produccion");
+    redirect("/admin/produccion/registrar");
   }
 
   const hoy = hoyChile();
@@ -113,8 +113,9 @@ export async function registrarProduccion(formData: FormData) {
   ]);
 
   revalidatePath("/admin/produccion");
+  revalidatePath("/admin/produccion/registrar");
   revalidatePath("/admin/productos");
   revalidatePath("/admin/productos/movimientos");
   revalidatePath("/admin");
-  redirect("/admin/produccion?ok=1");
+  redirect("/admin/produccion/registrar?ok=1");
 }
