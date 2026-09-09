@@ -97,11 +97,17 @@ export default async function ReportesPage({
         .neq("estado", "eliminado")
         .gte("fecha_pedido", anterior.desde)
         .lte("fecha_pedido", anterior.hasta),
-      // Pendiente de pago = lo mismo que "Por cobrar" en Cobranzas: pedidos ya
-      // entregados que todavía no se marcan como pagados. Es una deuda
-      // vigente, no algo que ocurrió "dentro" del período filtrado arriba,
-      // así que se consulta aparte, sin los filtros de fecha del reporte.
-      supabase.from("pedidos").select("total").eq("estado", "entregado").eq("pagado", false),
+      // Pendiente de pago = mismo criterio que "Por cobrar" en Cobranzas
+      // (pedidos ya entregados que todavía no se marcan como pagados), pero
+      // acotado al mismo rango de fechas (por fecha de pedido) que el resto
+      // del reporte, para que todos los cuadros hablen del mismo período.
+      supabase
+        .from("pedidos")
+        .select("total")
+        .eq("estado", "entregado")
+        .eq("pagado", false)
+        .gte("fecha_pedido", desde)
+        .lte("fecha_pedido", hasta),
     ]);
 
   const totalPeriodo = (pedidos ?? []).reduce((acc, p) => acc + Number(p.total), 0);
@@ -237,7 +243,7 @@ export default async function ReportesPage({
           label="Pendiente de pago"
           value={formatCLP(totalPendienteCobro)}
           tone={listaPendientes.length > 0 ? "warning" : "default"}
-          hint={`${listaPendientes.length} pedido${listaPendientes.length === 1 ? "" : "s"} entregado${listaPendientes.length === 1 ? "" : "s"} sin pagar`}
+          hint={`${listaPendientes.length} pedido${listaPendientes.length === 1 ? "" : "s"} sin pagar en el período`}
         />
         <StatCard label="Pedidos" value={cantidadPedidos} hint="No cancelados" />
         <StatCard
