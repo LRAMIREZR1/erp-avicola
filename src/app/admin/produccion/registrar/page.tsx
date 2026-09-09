@@ -105,25 +105,12 @@ export default async function RegistrarProduccionPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-semibold text-stone-800">Registrar producción</h1>
-          <p className="text-sm text-stone-500">
-            Registra cuántas unidades se recolectaron/clasificaron hoy — el stock se suma
-            automáticamente
-          </p>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link
-            href="/admin/productos/movimientos"
-            className="text-sm text-amber-700 hover:underline"
-          >
-            Ver historial de stock
-          </Link>
-          <Link href="/admin/produccion" className="text-sm text-amber-700 hover:underline">
-            Ver indicadores de producción
-          </Link>
-        </div>
+      <div>
+        <h1 className="text-lg font-semibold text-stone-800">Registrar producción</h1>
+        <p className="text-sm text-stone-500">
+          Registra cuántas unidades se recolectaron/clasificaron hoy — el stock se suma
+          automáticamente
+        </p>
       </div>
 
       {ok === "1" && (
