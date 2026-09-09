@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { diaChileDe, formatFecha, hoyChile } from "@/lib/format";
+import { diaChileDe, formatFecha, hoyChile, sumarDias } from "@/lib/format";
 import { requireRol } from "@/lib/roles";
 import { registrarProduccion } from "@/app/admin/produccion/actions";
 import StatCard from "@/components/StatCard";
+import ProduccionCajasChart, {
+  type ProduccionCajasDatum,
+} from "@/components/ProduccionCajasChart";
 import {
   NOMBRES_CATEGORIA,
   NOMBRES_FORMATO,
@@ -36,6 +39,17 @@ function haceDiasFecha(dias: number) {
   const d = new Date();
   d.setDate(d.getDate() - dias);
   return d.toISOString().slice(0, 10);
+}
+
+// Etiqueta corta para el eje del gráfico ("lun 8"). fecha ya viene en hora
+// Chile (YYYY-MM-DD), así que se formatea en UTC para no volver a
+// desplazarla por la zona horaria del servidor.
+function etiquetaDiaCorta(fecha: string) {
+  return new Intl.DateTimeFormat("es-CL", {
+    weekday: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${fecha}T00:00:00Z`));
 }
 
 function TablaProduccion({
@@ -111,7 +125,7 @@ export default async function ProduccionPage({
     supabase.from("productos").select("*").eq("activo", true),
     supabase
       .from("movimientos_stock")
-      .select("cantidad, created_at")
+      .select("cantidad, created_at, productos(formato)")
       .eq("motivo", MOTIVO_PRODUCCION)
       .gte("created_at", haceDias(13))
       .order("created_at", { ascending: false }),
@@ -132,10 +146,38 @@ export default async function ProduccionPage({
   const cajas = todos.filter((p) => p.formato !== "bandeja_30");
 
   const totalPorDia = new Map<string, number>();
+  // Cajas producidas por día, separadas por formato (120 vs 180), para el
+  // gráfico de tendencia. Las bandejas no entran aquí — el gráfico es solo
+  // de cajas, tal como se pidió.
+  const cajasPorDia = new Map<string, { caja120: number; caja180: number }>();
   for (const m of movimientos ?? []) {
     const dia = diaChileDe(m.created_at);
     totalPorDia.set(dia, (totalPorDia.get(dia) ?? 0) + m.cantidad);
+
+    const formato = (m as unknown as { productos: { formato: Formato } | null }).productos
+      ?.formato;
+    if (formato === "caja_120" || formato === "caja_180") {
+      const actual = cajasPorDia.get(dia) ?? { caja120: 0, caja180: 0 };
+      if (formato === "caja_120") actual.caja120 += m.cantidad;
+      else actual.caja180 += m.cantidad;
+      cajasPorDia.set(dia, actual);
+    }
   }
+
+  // Los últimos 14 días en orden cronológico (de más antiguo a más
+  // reciente), con 0 en los días sin producción registrada — así el
+  // gráfico muestra huecos reales (ej. domingos sin recolección) en vez de
+  // saltárselos.
+  const datosGraficoCajas: ProduccionCajasDatum[] = Array.from({ length: 14 }, (_, i) => {
+    const fecha = sumarDias(hoy, -(13 - i));
+    const valores = cajasPorDia.get(fecha) ?? { caja120: 0, caja180: 0 };
+    return {
+      fecha,
+      etiqueta: etiquetaDiaCorta(fecha),
+      caja120: valores.caja120,
+      caja180: valores.caja180,
+    };
+  });
 
   const mermaPorDia = new Map<string, number>();
   for (const m of mermasData ?? []) {
@@ -184,6 +226,13 @@ export default async function ProduccionPage({
           tone={mermaHoy > 0 ? "danger" : "default"}
           hint="no salen al mercado"
         />
+      </div>
+
+      <div className="rounded-2xl border border-stone-200 bg-white p-4">
+        <p className="mb-3 text-sm font-medium text-stone-700">
+          Producción de cajas — últimos 14 días
+        </p>
+        <ProduccionCajasChart data={datosGraficoCajas} />
       </div>
 
       <form action={registrarProduccion} className="space-y-6">
