@@ -48,7 +48,28 @@ export async function registrarProduccion(formData: FormData) {
 
   const hoy = hoyChile();
 
+  // El plantel de gallinas se guarda en plantel_gallinas (una sola fila con
+  // el valor vigente) y ese valor ya lo mantiene al día en tiempo real
+  // registrarMortandad/ajustarPlantel. Al registrar la producción de hoy,
+  // dejamos un snapshot de HOY en plantel_gallinas_historico con ese mismo
+  // valor — que, por definición, es "la cantidad de gallinas activas al
+  // cierre de ayer" si es que hoy todavía no hubo ninguna mortandad. Se usa
+  // ignoreDuplicates para no pisar un snapshot que ya haya quedado más
+  // temprano en el día (por ejemplo si ya se registró mortandad de hoy antes
+  // de cargar la producción).
+  const { data: plantel } = await supabase
+    .from("plantel_gallinas")
+    .select("cantidad_actual")
+    .eq("id", "principal")
+    .single();
+
   await Promise.all([
+    supabase
+      .from("plantel_gallinas_historico")
+      .upsert(
+        { fecha: hoy, cantidad: plantel?.cantidad_actual ?? 0 },
+        { onConflict: "fecha", ignoreDuplicates: true },
+      ),
     ...entradasStock.map(async ({ productoId, cantidad }) => {
       const { data: producto } = await supabase
         .from("productos")
