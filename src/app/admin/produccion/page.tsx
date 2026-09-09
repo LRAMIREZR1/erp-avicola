@@ -193,7 +193,6 @@ export default async function ProduccionPage({
       caja120: valores.caja120,
       caja180: valores.caja180,
       totalHuevos: huevosPorDia.get(fecha) ?? 0,
-      huevosRotos: mermaPorDia.get(fecha) ?? 0,
     };
   });
 
@@ -203,6 +202,9 @@ export default async function ProduccionPage({
   const totalHoy = totalPorDia.get(hoy) ?? 0;
   const mermaHoy = mermaPorDia.get(hoy) ?? 0;
   const huevosHoy = huevosPorDia.get(hoy) ?? 0;
+  // Total de huevos manejados hoy (recolectados + rotos) — la vista general
+  // del día, aparte de las cajas ya envasadas.
+  const totalHuevosDiaHoy = huevosHoy + mermaHoy;
 
   return (
     <div className="space-y-6">
@@ -228,7 +230,7 @@ export default async function ProduccionPage({
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard
           label={`Producción de hoy (${formatFecha(hoy)})`}
           value={`${totalHoy} unidades`}
@@ -244,6 +246,11 @@ export default async function ProduccionPage({
           value={`${mermaHoy} unidades`}
           tone={mermaHoy > 0 ? "danger" : "default"}
           hint="no salen al mercado"
+        />
+        <StatCard
+          label="Total del día"
+          value={`${totalHuevosDiaHoy} unidades`}
+          hint="recolectados + rotos"
         />
       </div>
 
@@ -348,6 +355,7 @@ export default async function ProduccionPage({
                 <th className="pb-2 text-right font-medium">Total producido</th>
                 <th className="pb-2 text-right font-medium">Huevos recolectados</th>
                 <th className="pb-2 text-right font-medium">Huevos rotos</th>
+                <th className="pb-2 text-right font-medium">Total del día</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
@@ -369,6 +377,9 @@ export default async function ProduccionPage({
                   </td>
                   <td className="py-2 text-right font-semibold text-red-600">
                     {mermaPorDia.get(dia) ?? 0} unidades
+                  </td>
+                  <td className="py-2 text-right font-semibold text-stone-800">
+                    {(huevosPorDia.get(dia) ?? 0) + (mermaPorDia.get(dia) ?? 0)} unidades
                   </td>
                 </tr>
               ))}
