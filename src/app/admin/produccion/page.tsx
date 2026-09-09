@@ -2,30 +2,14 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { diaChileDe, formatFecha, hoyChile, sumarDias } from "@/lib/format";
 import { requireRol } from "@/lib/roles";
-import { registrarProduccion } from "@/app/admin/produccion/actions";
 import StatCard from "@/components/StatCard";
 import ProduccionCajasChart, {
   type ProduccionCajasDatum,
 } from "@/components/ProduccionCajasChart";
 import PosturaChart, { type PosturaDatum } from "@/components/PosturaChart";
-import {
-  NOMBRES_CATEGORIA,
-  NOMBRES_FORMATO,
-  type Categoria,
-  type Formato,
-  type Producto,
-} from "@/lib/supabase/types";
+import type { Formato } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
-
-// Orden por tamaño del huevo, de mayor a menor — no alfabético.
-const ORDEN_CATEGORIA: Record<Categoria, number> = {
-  super_extra: 0,
-  extra: 1,
-  primera: 2,
-  segunda: 3,
-  tercera: 4,
-};
 
 // Debe coincidir con el motivo usado en actions.ts.
 const MOTIVO_PRODUCCION = "Producción diaria";
@@ -53,77 +37,15 @@ function etiquetaDiaCorta(fecha: string) {
   }).format(new Date(`${fecha}T00:00:00Z`));
 }
 
-function TablaProduccion({
-  productos,
-  mostrarFormato,
-}: {
-  productos: Producto[];
-  mostrarFormato: boolean;
-}) {
-  return (
-    <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-stone-200 text-xs font-semibold uppercase tracking-wide text-stone-600">
-          <tr>
-            <th className="min-w-56 px-4 py-3">Producto</th>
-            <th className="min-w-36 px-4 py-3">Categoría</th>
-            {mostrarFormato && <th className="min-w-32 px-4 py-3">Formato</th>}
-            <th className="min-w-28 px-4 py-3">Stock actual</th>
-            <th className="min-w-40 px-4 py-3">Producido hoy</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-stone-100">
-          {productos.map((p) => (
-            <tr key={p.id} className="hover:bg-stone-50">
-              <td className="px-4 py-3 font-medium text-stone-800">{p.nombre}</td>
-              <td className="px-4 py-3 text-stone-600">
-                {NOMBRES_CATEGORIA[p.categoria as Categoria]}
-              </td>
-              {mostrarFormato && (
-                <td className="px-4 py-3 text-stone-600">
-                  {NOMBRES_FORMATO[p.formato as Formato]}
-                </td>
-              )}
-              <td className="px-4 py-3 text-stone-600">{p.stock_actual}</td>
-              <td className="px-4 py-3">
-                <input
-                  type="number"
-                  name={`cantidad_${p.id}`}
-                  min={0}
-                  placeholder="0"
-                  className="w-28 rounded-lg border border-stone-300 px-2 py-1 text-sm focus:border-amber-600 focus:outline-none"
-                />
-              </td>
-            </tr>
-          ))}
-          {productos.length === 0 && (
-            <tr>
-              <td
-                colSpan={4 + (mostrarFormato ? 1 : 0)}
-                className="px-4 py-8 text-center text-stone-400"
-              >
-                Aún no hay productos en esta sección
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-export default async function ProduccionPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ ok?: string }>;
-}) {
+// Página puramente informativa: indicadores y gráficos para tomar
+// decisiones sobre la operación. El ingreso manual de datos vive aparte, en
+// /admin/produccion/registrar, para no mezclar "mirar" con "cargar".
+export default async function ProduccionPage() {
   await requireRol(["administrador", "encargado_bodega"]);
-  const { ok } = await searchParams;
   const supabase = await createClient();
   const hoy = hoyChile();
 
   const [
-    { data: productos },
     { data: movimientos },
     { data: mermasData },
     { data: huevosData },
@@ -131,7 +53,6 @@ export default async function ProduccionPage({
     { data: mortandadData },
     { data: historicoData },
   ] = await Promise.all([
-    supabase.from("productos").select("*").eq("activo", true),
     supabase
       .from("movimientos_stock")
       .select("cantidad, created_at, productos(formato)")
@@ -159,15 +80,6 @@ export default async function ProduccionPage({
       .select("fecha, cantidad")
       .gte("fecha", haceDiasFecha(13)),
   ]);
-
-  const todos = [...(productos ?? [])].sort((a, b) => {
-    const diff =
-      ORDEN_CATEGORIA[a.categoria as Categoria] - ORDEN_CATEGORIA[b.categoria as Categoria];
-    if (diff !== 0) return diff;
-    return a.nombre.localeCompare(b.nombre);
-  });
-  const bandejas = todos.filter((p) => p.formato === "bandeja_30");
-  const cajas = todos.filter((p) => p.formato !== "bandeja_30");
 
   const totalPorDia = new Map<string, number>();
   // Cajas producidas por día, separadas por formato (120 vs 180), para el
@@ -249,243 +161,4 @@ export default async function ProduccionPage({
   // plantel actual y sumando de vuelta las mortandades desde ese día hasta
   // hoy (recorriendo de más reciente a más antiguo). Ese respaldo no
   // contempla ajustes manuales de plantel dentro de la ventana (compras,
-  // correcciones) que no hayan quedado con snapshot propio.
-  const gallinasPorDia = new Map<string, number>();
-  let acumuladoMortandad = 0;
-  for (let i = datosGraficoCajas.length - 1; i >= 0; i--) {
-    const fecha = datosGraficoCajas[i].fecha;
-    acumuladoMortandad += mortandadPorDia.get(fecha) ?? 0;
-    gallinasPorDia.set(
-      fecha,
-      historicoPorDia.get(fecha) ?? gallinasActivas + acumuladoMortandad,
-    );
-  }
-  const gallinasHoyInicioDeDia = gallinasPorDia.get(hoy) ?? gallinasActivas;
-
-  // % de postura = huevos puestos hoy (recolectados + rotos) / gallinas que
-  // había al comenzar el día — el indicador estándar del rubro. Sin plantel
-  // cargado no se puede calcular.
-  const porcentajePostura =
-    gallinasHoyInicioDeDia > 0 ? (totalHuevosDiaHoy / gallinasHoyInicioDeDia) * 100 : null;
-
-  // Mismo cálculo día a día para el gráfico de tendencia, usando el plantel
-  // reconstruido de cada día en vez del valor actual fijo.
-  const datosPostura: PosturaDatum[] = datosGraficoCajas.map((d) => {
-    const gallinasEseDia = gallinasPorDia.get(d.fecha) ?? 0;
-    return {
-      fecha: d.fecha,
-      etiqueta: d.etiqueta,
-      porcentaje: gallinasEseDia > 0 ? (d.totalHuevos / gallinasEseDia) * 100 : 0,
-    };
-  });
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold text-stone-800">Producción diaria</h1>
-          <p className="text-sm text-stone-500">
-            Registra cuántas unidades se recolectaron/clasificaron hoy — el stock se suma
-            automáticamente
-          </p>
-        </div>
-        <Link
-          href="/admin/productos/movimientos"
-          className="text-sm text-amber-700 hover:underline"
-        >
-          Ver historial de stock
-        </Link>
-      </div>
-
-      {ok === "1" && (
-        <div className="rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
-          Producción registrada y stock actualizado.
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        <StatCard
-          label={`Producción de hoy (${formatFecha(hoy)})`}
-          value={`${totalHoy} unidades`}
-          hint="ya registradas hoy en el sistema"
-        />
-        <StatCard
-          label="Huevos recolectados hoy"
-          value={`${huevosHoy} unidades`}
-          hint="total del día, antes de clasificar"
-        />
-        <StatCard
-          label="Huevos rotos hoy"
-          value={`${mermaHoy} unidades`}
-          tone={mermaHoy > 0 ? "danger" : "default"}
-          hint="no salen al mercado"
-        />
-        <StatCard
-          label="Total del día"
-          value={`${totalHuevosDiaHoy} unidades`}
-          hint="recolectados + rotos"
-        />
-        <StatCard
-          label="% de postura"
-          value={porcentajePostura === null ? "—" : `${porcentajePostura.toFixed(1)}%`}
-          hint={
-            porcentajePostura === null
-              ? "carga el plantel en Mortandad"
-              : `${gallinasHoyInicioDeDia} gallinas activas`
-          }
-        />
-      </div>
-
-      <div className="rounded-2xl border border-stone-200 bg-white p-4">
-        <p className="mb-3 text-sm font-medium text-stone-700">
-          Producción de cajas — últimos 14 días
-        </p>
-        <ProduccionCajasChart data={datosGraficoCajas} />
-      </div>
-
-      <div className="rounded-2xl border border-stone-200 bg-white p-4">
-        <p className="mb-3 text-sm font-medium text-stone-700">
-          % de postura — últimos 14 días
-        </p>
-        {gallinasActivas > 0 ? (
-          <PosturaChart data={datosPostura} />
-        ) : (
-          <p className="py-4 text-center text-sm text-stone-400">
-            Carga el plantel de gallinas en{" "}
-            <Link href="/admin/mortandad" className="text-amber-700 hover:underline">
-              Mortandad
-            </Link>{" "}
-            para ver este gráfico
-          </p>
-        )}
-      </div>
-
-      <form action={registrarProduccion} className="space-y-6">
-        <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-stone-700">Bandejas (30 un.)</h2>
-          <TablaProduccion productos={bandejas} mostrarFormato={false} />
-        </div>
-
-        <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-stone-700">Cajas (120 / 180 un.)</h2>
-          <TablaProduccion productos={cajas} mostrarFormato={true} />
-        </div>
-
-        <div className="space-y-3">
-          <div>
-            <h2 className="text-sm font-semibold text-stone-700">Total de huevos del día</h2>
-            <p className="text-xs text-stone-400">
-              El total recolectado antes de clasificar por tamaño — es solo de referencia, no
-              afecta el stock de ningún producto ni se descuenta de nada.
-            </p>
-          </div>
-          <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-stone-50 p-4">
-            <label htmlFor="total_huevos" className="text-sm font-medium text-stone-800">
-              Total de huevos recolectados hoy
-            </label>
-            <input
-              id="total_huevos"
-              type="number"
-              name="total_huevos"
-              min={0}
-              placeholder="0"
-              className="w-28 rounded-lg border border-stone-300 px-2 py-1 text-sm focus:border-amber-600 focus:outline-none"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <div>
-            <h2 className="text-sm font-semibold text-stone-700">
-              Huevos rotos (no salen al mercado)
-            </h2>
-            <p className="text-xs text-stone-400">
-              Se dejan aparte sin clasificar por tamaño, solo se cuenta el total del día — no
-              afectan el stock de ningún producto, solo quedan registrados como pérdida.
-            </p>
-          </div>
-          <div className="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50/40 p-4">
-            <label htmlFor="merma" className="text-sm font-medium text-stone-800">
-              Total de huevos rotos hoy
-            </label>
-            <input
-              id="merma"
-              type="number"
-              name="merma"
-              min={0}
-              placeholder="0"
-              className="w-28 rounded-lg border border-red-300 px-2 py-1 text-sm focus:border-red-600 focus:outline-none"
-            />
-          </div>
-        </div>
-
-        <button
-          type="submit"
-          className="rounded-lg bg-amber-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-amber-800"
-        >
-          Registrar producción de hoy
-        </button>
-        <p className="text-xs text-stone-400">
-          Deja en blanco (o en 0) lo que hoy no tuvo movimiento. Si te equivocaste en una cantidad
-          ya registrada, corrígelo con &quot;Ajustar stock&quot; en Productos y stock (para
-          producción) o pide a un administrador que revise el historial (para mermas).
-        </p>
-      </form>
-
-      <div className="rounded-2xl border border-stone-200 bg-white p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-sm font-medium text-stone-700">Últimos 14 días</p>
-          <Link
-            href="/admin/productos/movimientos"
-            className="text-sm text-amber-700 hover:underline"
-          >
-            Ver detalle
-          </Link>
-        </div>
-        {diasOrdenados.length === 0 ? (
-          <p className="py-4 text-center text-sm text-stone-400">
-            Aún no hay producción ni mermas registradas
-          </p>
-        ) : (
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="text-xs uppercase text-stone-500">
-                <th className="pb-2 font-medium">Día</th>
-                <th className="pb-2 text-right font-medium">Total producido</th>
-                <th className="pb-2 text-right font-medium">Huevos recolectados</th>
-                <th className="pb-2 text-right font-medium">Huevos rotos</th>
-                <th className="pb-2 text-right font-medium">Total del día</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100">
-              {diasOrdenados.map((dia) => (
-                <tr key={dia}>
-                  <td className="py-2 text-stone-700">
-                    {formatFecha(dia)}
-                    {dia === hoy && (
-                      <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                        Hoy
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-2 text-right font-semibold text-stone-800">
-                    {totalPorDia.get(dia) ?? 0} unidades
-                  </td>
-                  <td className="py-2 text-right font-semibold text-stone-800">
-                    {huevosPorDia.get(dia) ?? 0} unidades
-                  </td>
-                  <td className="py-2 text-right font-semibold text-red-600">
-                    {mermaPorDia.get(dia) ?? 0} unidades
-                  </td>
-                  <td className="py-2 text-right font-semibold text-stone-800">
-                    {(huevosPorDia.get(dia) ?? 0) + (mermaPorDia.get(dia) ?? 0)} unidades
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </div>
-  );
-}
+  // correcciones) que no
