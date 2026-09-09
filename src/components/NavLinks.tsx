@@ -43,7 +43,12 @@ const SECCIONES: NavSeccion[] = [
     links: [
       {
         href: "/admin/produccion",
-        label: "Producción diaria",
+        label: "Indicadores de producción",
+        roles: ["administrador", "encargado_bodega"],
+      },
+      {
+        href: "/admin/produccion/registrar",
+        label: "Registrar producción",
         roles: ["administrador", "encargado_bodega"],
       },
       {
@@ -74,8 +79,27 @@ const SECCIONES: NavSeccion[] = [
   },
 ];
 
+// Ahora que hay rutas anidadas (/admin/produccion y /admin/produccion/registrar
+// son ambas "hijas" de /admin/produccion), un simple pathname.startsWith(href)
+// marcaría las dos como activas a la vez estando en /registrar. Por eso se
+// busca, entre TODOS los links, el de href más específico (más largo) que
+// calce con la ruta actual, y solo ese queda resaltado.
+function hrefMasEspecificoQueCalza(pathname: string): string | null {
+  const todosLosLinks = SECCIONES.flatMap((s) => s.links);
+  const candidatos = todosLosLinks.filter((link) =>
+    link.href === "/admin"
+      ? pathname === "/admin"
+      : pathname === link.href || pathname.startsWith(`${link.href}/`),
+  );
+  if (candidatos.length === 0) return null;
+  return candidatos.reduce((masLargo, actual) =>
+    actual.href.length > masLargo.href.length ? actual : masLargo,
+  ).href;
+}
+
 export default function NavLinks({ rol }: { rol: Rol }) {
   const pathname = usePathname();
+  const hrefActivo = hrefMasEspecificoQueCalza(pathname);
 
   return (
     <nav className="flex flex-col gap-4">
@@ -100,8 +124,7 @@ export default function NavLinks({ rol }: { rol: Rol }) {
               </p>
             )}
             {links.map((link) => {
-              const active =
-                link.href === "/admin" ? pathname === "/admin" : pathname.startsWith(link.href);
+              const active = link.href === hrefActivo;
               return (
                 <Link
                   key={link.href}
