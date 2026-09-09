@@ -121,26 +121,32 @@ export default async function ProduccionPage({
   const supabase = await createClient();
   const hoy = hoyChile();
 
-  const [{ data: productos }, { data: movimientos }, { data: mermasData }, { data: huevosData }] =
-    await Promise.all([
-      supabase.from("productos").select("*").eq("activo", true),
-      supabase
-        .from("movimientos_stock")
-        .select("cantidad, created_at, productos(formato)")
-        .eq("motivo", MOTIVO_PRODUCCION)
-        .gte("created_at", haceDias(13))
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("mermas_produccion")
-        .select("fecha, cantidad")
-        .gte("fecha", haceDiasFecha(13))
-        .order("fecha", { ascending: false }),
-      supabase
-        .from("recoleccion_huevos")
-        .select("fecha, cantidad")
-        .gte("fecha", haceDiasFecha(13))
-        .order("fecha", { ascending: false }),
-    ]);
+  const [
+    { data: productos },
+    { data: movimientos },
+    { data: mermasData },
+    { data: huevosData },
+    { data: plantel },
+  ] = await Promise.all([
+    supabase.from("productos").select("*").eq("activo", true),
+    supabase
+      .from("movimientos_stock")
+      .select("cantidad, created_at, productos(formato)")
+      .eq("motivo", MOTIVO_PRODUCCION)
+      .gte("created_at", haceDias(13))
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("mermas_produccion")
+      .select("fecha, cantidad")
+      .gte("fecha", haceDiasFecha(13))
+      .order("fecha", { ascending: false }),
+    supabase
+      .from("recoleccion_huevos")
+      .select("fecha, cantidad")
+      .gte("fecha", haceDiasFecha(13))
+      .order("fecha", { ascending: false }),
+    supabase.from("plantel_gallinas").select("cantidad_actual").eq("id", "principal").single(),
+  ]);
 
   const todos = [...(productos ?? [])].sort((a, b) => {
     const diff =
@@ -207,6 +213,12 @@ export default async function ProduccionPage({
   // Total de huevos manejados hoy (recolectados + rotos) — la vista general
   // del día, aparte de las cajas ya envasadas.
   const totalHuevosDiaHoy = huevosHoy + mermaHoy;
+  const gallinasActivas = plantel?.cantidad_actual ?? 0;
+  // % de postura = huevos puestos hoy (recolectados + rotos) / gallinas
+  // activas — el indicador estándar del rubro. Sin plantel cargado no se
+  // puede calcular.
+  const porcentajePostura =
+    gallinasActivas > 0 ? (totalHuevosDiaHoy / gallinasActivas) * 100 : null;
 
   return (
     <div className="space-y-6">
@@ -232,7 +244,7 @@ export default async function ProduccionPage({
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard
           label={`Producción de hoy (${formatFecha(hoy)})`}
           value={`${totalHoy} unidades`}
@@ -253,6 +265,15 @@ export default async function ProduccionPage({
           label="Total del día"
           value={`${totalHuevosDiaHoy} unidades`}
           hint="recolectados + rotos"
+        />
+        <StatCard
+          label="% de postura"
+          value={porcentajePostura === null ? "—" : `${porcentajePostura.toFixed(1)}%`}
+          hint={
+            porcentajePostura === null
+              ? "carga el plantel en Mortandad"
+              : `${gallinasActivas} gallinas activas`
+          }
         />
       </div>
 
