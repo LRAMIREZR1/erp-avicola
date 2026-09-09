@@ -47,6 +47,11 @@ const SECCIONES: NavSeccion[] = [
         roles: ["administrador", "encargado_bodega"],
       },
       {
+        href: "/admin/mortandad",
+        label: "Mortandad",
+        roles: ["administrador", "encargado_bodega"],
+      },
+      {
         href: "/admin/reparto",
         label: "Reparto",
         roles: ["administrador", "vendedor", "encargado_bodega", "repartidor"],
