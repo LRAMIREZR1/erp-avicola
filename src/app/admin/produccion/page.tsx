@@ -161,4 +161,172 @@ export default async function ProduccionPage() {
   // plantel actual y sumando de vuelta las mortandades desde ese día hasta
   // hoy (recorriendo de más reciente a más antiguo). Ese respaldo no
   // contempla ajustes manuales de plantel dentro de la ventana (compras,
-  // correcciones) que no
+  // correcciones) que no hayan quedado con snapshot propio.
+  const gallinasPorDia = new Map<string, number>();
+  let acumuladoMortandad = 0;
+  for (let i = datosGraficoCajas.length - 1; i >= 0; i--) {
+    const fecha = datosGraficoCajas[i].fecha;
+    acumuladoMortandad += mortandadPorDia.get(fecha) ?? 0;
+    gallinasPorDia.set(
+      fecha,
+      historicoPorDia.get(fecha) ?? gallinasActivas + acumuladoMortandad,
+    );
+  }
+  const gallinasHoyInicioDeDia = gallinasPorDia.get(hoy) ?? gallinasActivas;
+
+  // % de postura = huevos puestos hoy (recolectados + rotos) / gallinas que
+  // había al comenzar el día — el indicador estándar del rubro. Sin plantel
+  // cargado no se puede calcular.
+  const porcentajePostura =
+    gallinasHoyInicioDeDia > 0 ? (totalHuevosDiaHoy / gallinasHoyInicioDeDia) * 100 : null;
+
+  // Mismo cálculo día a día para el gráfico de tendencia, usando el plantel
+  // reconstruido de cada día en vez del valor actual fijo.
+  const datosPostura: PosturaDatum[] = datosGraficoCajas.map((d) => {
+    const gallinasEseDia = gallinasPorDia.get(d.fecha) ?? 0;
+    return {
+      fecha: d.fecha,
+      etiqueta: d.etiqueta,
+      porcentaje: gallinasEseDia > 0 ? (d.totalHuevos / gallinasEseDia) * 100 : 0,
+    };
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-semibold text-stone-800">Indicadores de producción</h1>
+          <p className="text-sm text-stone-500">
+            Gráficos y resumen de la operación diaria, para tomar decisiones
+          </p>
+        </div>
+        <div className="flex items-center gap-4">
+          <Link
+            href="/admin/productos/movimientos"
+            className="text-sm text-amber-700 hover:underline"
+          >
+            Ver historial de stock
+          </Link>
+          <Link
+            href="/admin/produccion/registrar"
+            className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800"
+          >
+            Registrar producción
+          </Link>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        <StatCard
+          label={`Producción de hoy (${formatFecha(hoy)})`}
+          value={`${totalHoy} unidades`}
+          hint="ya registradas hoy en el sistema"
+        />
+        <StatCard
+          label="Huevos recolectados hoy"
+          value={`${huevosHoy} unidades`}
+          hint="total del día, antes de clasificar"
+        />
+        <StatCard
+          label="Huevos rotos hoy"
+          value={`${mermaHoy} unidades`}
+          tone={mermaHoy > 0 ? "danger" : "default"}
+          hint="no salen al mercado"
+        />
+        <StatCard
+          label="Total del día"
+          value={`${totalHuevosDiaHoy} unidades`}
+          hint="recolectados + rotos"
+        />
+        <StatCard
+          label="% de postura"
+          value={porcentajePostura === null ? "—" : `${porcentajePostura.toFixed(1)}%`}
+          hint={
+            porcentajePostura === null
+              ? "carga el plantel en Mortandad"
+              : `${gallinasHoyInicioDeDia} gallinas activas`
+          }
+        />
+      </div>
+
+      <div className="rounded-2xl border border-stone-200 bg-white p-4">
+        <p className="mb-3 text-sm font-medium text-stone-700">
+          Producción de cajas — últimos 14 días
+        </p>
+        <ProduccionCajasChart data={datosGraficoCajas} />
+      </div>
+
+      <div className="rounded-2xl border border-stone-200 bg-white p-4">
+        <p className="mb-3 text-sm font-medium text-stone-700">
+          % de postura — últimos 14 días
+        </p>
+        {gallinasActivas > 0 ? (
+          <PosturaChart data={datosPostura} />
+        ) : (
+          <p className="py-4 text-center text-sm text-stone-400">
+            Carga el plantel de gallinas en{" "}
+            <Link href="/admin/mortandad" className="text-amber-700 hover:underline">
+              Mortandad
+            </Link>{" "}
+            para ver este gráfico
+          </p>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-stone-200 bg-white p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-sm font-medium text-stone-700">Últimos 14 días</p>
+          <Link
+            href="/admin/productos/movimientos"
+            className="text-sm text-amber-700 hover:underline"
+          >
+            Ver detalle
+          </Link>
+        </div>
+        {diasOrdenados.length === 0 ? (
+          <p className="py-4 text-center text-sm text-stone-400">
+            Aún no hay producción ni mermas registradas
+          </p>
+        ) : (
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="text-xs uppercase text-stone-500">
+                <th className="pb-2 font-medium">Día</th>
+                <th className="pb-2 text-right font-medium">Total producido</th>
+                <th className="pb-2 text-right font-medium">Huevos recolectados</th>
+                <th className="pb-2 text-right font-medium">Huevos rotos</th>
+                <th className="pb-2 text-right font-medium">Total del día</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {diasOrdenados.map((dia) => (
+                <tr key={dia}>
+                  <td className="py-2 text-stone-700">
+                    {formatFecha(dia)}
+                    {dia === hoy && (
+                      <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                        Hoy
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-2 text-right font-semibold text-stone-800">
+                    {totalPorDia.get(dia) ?? 0} unidades
+                  </td>
+                  <td className="py-2 text-right font-semibold text-stone-800">
+                    {huevosPorDia.get(dia) ?? 0} unidades
+                  </td>
+                  <td className="py-2 text-right font-semibold text-red-600">
+                    {mermaPorDia.get(dia) ?? 0} unidades
+                  </td>
+                  <td className="py-2 text-right font-semibold text-stone-800">
+                    {(huevosPorDia.get(dia) ?? 0) + (mermaPorDia.get(dia) ?? 0)} unidades
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
