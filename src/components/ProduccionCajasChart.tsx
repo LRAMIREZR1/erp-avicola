@@ -14,6 +14,11 @@ export interface ProduccionCajasDatum {
   // producción" — así que esos días quedan como hueco en la línea, no como
   // una caída a cero.
   totalHuevos: number;
+  // Huevos rotos ese día. Se grafica como punto sobre el eje de cajas (misma
+  // magnitud que las cajas producidas, muy por debajo del total de huevos
+  // recolectados) — solo se dibuja el punto cuando hay dato (> 0), ya que un
+  // día sin registro tampoco se distingue de "cero rotos".
+  huevosRotos: number;
 }
 
 const SERIES = [
@@ -28,6 +33,9 @@ const COLOR_CAJAS = "#eb6834";
 // que se distinga con claridad del naranja de las cajas, ya que esta línea
 // se superpone a las barras.
 const COLOR_HUEVOS = "#4f46e5";
+// Mismo rojo que usa la app para "mermas"/estados de peligro (tone="danger"),
+// para que se lea igual que en las demás pantallas.
+const COLOR_ROTOS = "#dc2626";
 
 function nicerMax(value: number) {
   if (value <= 0) return 10;
@@ -42,6 +50,7 @@ interface HoverInfo {
   caja120: number;
   caja180: number;
   totalHuevos: number;
+  huevosRotos: number;
 }
 
 // Barras apiladas por día: caja_120 (tramo sólido, abajo) + caja_180 (tramo
@@ -50,14 +59,19 @@ interface HoverInfo {
 // línea punteada, índigo y con su propio eje a la derecha, traza el total
 // de huevos recolectados por día — va en un eje aparte porque la magnitud
 // (cientos/miles de huevos) no tiene nada que ver con la cantidad de cajas.
+// Puntos rojos marcan los huevos rotos de cada día, sobre el eje izquierdo
+// (misma escala que las cajas, ya que su magnitud es comparable).
 export default function ProduccionCajasChart({ data }: { data: ProduccionCajasDatum[] }) {
   const [hover, setHover] = useState<HoverInfo | null>(null);
 
   const totales = data.map((d) => d.caja120 + d.caja180);
-  const maxValor = Math.max(1, ...totales);
+  // El eje izquierdo también tiene que alcanzar para los puntos de huevos
+  // rotos, por si algún día superan la cantidad de cajas.
+  const maxValor = Math.max(1, ...totales, ...data.map((d) => d.huevosRotos));
   const niceMax = nicerMax(maxValor);
   const promedio = data.length > 0 ? totales.reduce((acc, t) => acc + t, 0) / data.length : 0;
   const ticks = [0, niceMax * 0.25, niceMax * 0.5, niceMax * 0.75, niceMax];
+  const hayRotos = data.some((d) => d.huevosRotos > 0);
 
   const maxHuevos = Math.max(1, ...data.map((d) => d.totalHuevos));
   const niceMaxHuevos = nicerMax(maxHuevos);
@@ -125,6 +139,15 @@ export default function ProduccionCajasChart({ data }: { data: ProduccionCajasDa
               style={{ borderColor: COLOR_HUEVOS }}
             />
             Total de huevos recolectados (eje derecho)
+          </div>
+        )}
+        {hayRotos && (
+          <div className="flex items-center gap-1.5 text-xs text-stone-600">
+            <span
+              className="inline-block h-2.5 w-2.5 rounded-full"
+              style={{ backgroundColor: COLOR_ROTOS }}
+            />
+            Huevos rotos (eje izquierdo)
           </div>
         )}
       </div>
@@ -197,6 +220,7 @@ export default function ProduccionCajasChart({ data }: { data: ProduccionCajasDa
                     caja120: d.caja120,
                     caja180: d.caja180,
                     totalHuevos: d.totalHuevos,
+                    huevosRotos: d.huevosRotos,
                   })
                 }
                 onMouseLeave={() => setHover(null)}
@@ -246,6 +270,38 @@ export default function ProduccionCajasChart({ data }: { data: ProduccionCajasDa
             );
           })}
 
+          {/* puntos de huevos rotos (eje izquierdo, misma escala que las
+              cajas) — solo se marca el punto cuando ese día tiene dato */}
+          {data.map((d, i) => {
+            if (d.huevosRotos <= 0) return null;
+            const cx = padLeft + i * groupW + groupW / 2;
+            const cy = y(d.huevosRotos);
+            const isHovered = hover?.fecha === d.fecha;
+            return (
+              <circle
+                key={`roto-${d.fecha}`}
+                cx={cx}
+                cy={cy}
+                r={isHovered ? 4.5 : 3}
+                fill={COLOR_ROTOS}
+                stroke="white"
+                strokeWidth={1}
+                onMouseEnter={() =>
+                  setHover({
+                    fecha: d.fecha,
+                    etiqueta: d.etiqueta,
+                    caja120: d.caja120,
+                    caja180: d.caja180,
+                    totalHuevos: d.totalHuevos,
+                    huevosRotos: d.huevosRotos,
+                  })
+                }
+                onMouseLeave={() => setHover(null)}
+                style={{ cursor: "pointer" }}
+              />
+            );
+          })}
+
           {/* línea de huevos totales (eje derecho), en tramos: se corta en
               los días sin dato en vez de bajar a 0 */}
           {segmentosHuevos.map((seg, si) => (
@@ -278,6 +334,7 @@ export default function ProduccionCajasChart({ data }: { data: ProduccionCajasDa
                     caja120: d.caja120,
                     caja180: d.caja180,
                     totalHuevos: d.totalHuevos,
+                    huevosRotos: d.huevosRotos,
                   })
                 }
                 onMouseLeave={() => setHover(null)}
@@ -300,6 +357,12 @@ export default function ProduccionCajasChart({ data }: { data: ProduccionCajasDa
                 <span className="font-medium text-stone-800">
                   {hover.totalHuevos.toLocaleString("es-CL")}
                 </span>
+              </>
+            )}
+            {hover.huevosRotos > 0 && (
+              <>
+                <span className="text-stone-500"> · Rotos: </span>
+                <span className="font-medium text-red-700">{hover.huevosRotos}</span>
               </>
             )}
           </div>
