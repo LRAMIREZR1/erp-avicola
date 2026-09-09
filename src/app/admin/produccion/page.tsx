@@ -193,27 +193,11 @@ export default async function ProduccionPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-semibold text-stone-800">Indicadores de producción</h1>
-          <p className="text-sm text-stone-500">
-            Gráficos y resumen de la operación diaria, para tomar decisiones
-          </p>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link
-            href="/admin/productos/movimientos"
-            className="text-sm text-amber-700 hover:underline"
-          >
-            Ver historial de stock
-          </Link>
-          <Link
-            href="/admin/produccion/registrar"
-            className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800"
-          >
-            Registrar producción
-          </Link>
-        </div>
+      <div>
+        <h1 className="text-lg font-semibold text-stone-800">Indicadores de producción</h1>
+        <p className="text-sm text-stone-500">
+          Gráficos y resumen de la operación diaria, para tomar decisiones
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
