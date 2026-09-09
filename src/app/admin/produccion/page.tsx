@@ -294,16 +294,16 @@ export default async function ProduccionPage() {
                     )}
                   </td>
                   <td className="py-2 text-right font-semibold text-stone-800">
-                    {totalPorDia.get(dia) ?? 0} unidades
+                    {totalPorDia.get(dia) ?? 0}
                   </td>
                   <td className="py-2 text-right font-semibold text-stone-800">
-                    {huevosPorDia.get(dia) ?? 0} unidades
+                    {huevosPorDia.get(dia) ?? 0}
                   </td>
                   <td className="py-2 text-right font-semibold text-red-600">
-                    {mermaPorDia.get(dia) ?? 0} unidades
+                    {mermaPorDia.get(dia) ?? 0}
                   </td>
                   <td className="py-2 text-right font-semibold text-stone-800">
-                    {(huevosPorDia.get(dia) ?? 0) + (mermaPorDia.get(dia) ?? 0)} unidades
+                    {(huevosPorDia.get(dia) ?? 0) + (mermaPorDia.get(dia) ?? 0)}
                   </td>
                 </tr>
               ))}
