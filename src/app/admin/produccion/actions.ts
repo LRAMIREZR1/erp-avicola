@@ -28,12 +28,21 @@ export async function registrarProduccion(formData: FormData) {
     entradasStock.push({ productoId: key.replace("cantidad_", ""), cantidad });
   }
 
+  // Total de huevos recolectados en el día (antes de clasificar por
+  // tamaño), solo como referencia — no está envasado, así que tampoco hay
+  // producto/stock que descontar ni sumar.
+  const totalHuevos = Number(formData.get("total_huevos") ?? 0);
+
   // Huevos rotos en la recolección: se dejan aparte sin clasificar por
   // tamaño, solo se cuenta el total del día. No están envasados, así que no
   // hay producto/stock que descontar.
   const merma = Number(formData.get("merma") ?? 0);
 
-  if (entradasStock.length === 0 && (!merma || merma <= 0)) {
+  if (
+    entradasStock.length === 0 &&
+    (!totalHuevos || totalHuevos <= 0) &&
+    (!merma || merma <= 0)
+  ) {
     redirect("/admin/produccion");
   }
 
@@ -62,6 +71,15 @@ export async function registrarProduccion(formData: FormData) {
         vendedor_id: user?.id ?? null,
       });
     }),
+    ...(totalHuevos > 0
+      ? [
+          supabase.from("recoleccion_huevos").insert({
+            fecha: hoy,
+            cantidad: totalHuevos,
+            vendedor_id: user?.id ?? null,
+          }),
+        ]
+      : []),
     ...(merma > 0
       ? [
           supabase.from("mermas_produccion").insert({
