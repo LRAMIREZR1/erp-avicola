@@ -192,7 +192,9 @@ export default async function ProduccionPage({
       etiqueta: etiquetaDiaCorta(fecha),
       caja120: valores.caja120,
       caja180: valores.caja180,
-      totalHuevos: huevosPorDia.get(fecha) ?? 0,
+      // Total del día = recolectados + rotos (mismo cálculo que la tarjeta
+      // "Total del día" y la columna de la tabla de abajo).
+      totalHuevos: (huevosPorDia.get(fecha) ?? 0) + (mermaPorDia.get(fecha) ?? 0),
     };
   });
 
