@@ -193,6 +193,7 @@ export default async function ProduccionPage({
       caja120: valores.caja120,
       caja180: valores.caja180,
       totalHuevos: huevosPorDia.get(fecha) ?? 0,
+      huevosRotos: mermaPorDia.get(fecha) ?? 0,
     };
   });
 
