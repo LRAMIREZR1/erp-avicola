@@ -72,36 +72,45 @@ export default async function ReportesPage({
 
   const supabase = await createClient();
 
-  const [{ data: pedidos }, { data: itemsVendidos }, { data: pedidosAnteriores }] = await Promise.all([
-    supabase
-      .from("pedidos")
-      .select("id, cliente_id, total, fecha_pedido, estado, clientes(nombre), vendedores(nombre)")
-      .neq("estado", "cancelado")
-      .neq("estado", "eliminado")
-      .gte("fecha_pedido", desde)
-      .lte("fecha_pedido", hasta),
-    supabase
-      .from("pedido_items")
-      .select(
-        "cantidad, precio_unitario, precio_lista, subtotal, productos(nombre, categoria, formato), pedidos!inner(fecha_pedido, estado, clientes(nombre))"
-      )
-      .neq("pedidos.estado", "cancelado")
-      .neq("pedidos.estado", "eliminado")
-      .gte("pedidos.fecha_pedido", desde)
-      .lte("pedidos.fecha_pedido", hasta),
-    supabase
-      .from("pedidos")
-      .select("total")
-      .neq("estado", "cancelado")
-      .neq("estado", "eliminado")
-      .gte("fecha_pedido", anterior.desde)
-      .lte("fecha_pedido", anterior.hasta),
-  ]);
+  const [{ data: pedidos }, { data: itemsVendidos }, { data: pedidosAnteriores }, { data: pedidosPendientes }] =
+    await Promise.all([
+      supabase
+        .from("pedidos")
+        .select("id, cliente_id, total, fecha_pedido, estado, clientes(nombre), vendedores(nombre)")
+        .neq("estado", "cancelado")
+        .neq("estado", "eliminado")
+        .gte("fecha_pedido", desde)
+        .lte("fecha_pedido", hasta),
+      supabase
+        .from("pedido_items")
+        .select(
+          "cantidad, precio_unitario, precio_lista, subtotal, productos(nombre, categoria, formato), pedidos!inner(fecha_pedido, estado, clientes(nombre))"
+        )
+        .neq("pedidos.estado", "cancelado")
+        .neq("pedidos.estado", "eliminado")
+        .gte("pedidos.fecha_pedido", desde)
+        .lte("pedidos.fecha_pedido", hasta),
+      supabase
+        .from("pedidos")
+        .select("total")
+        .neq("estado", "cancelado")
+        .neq("estado", "eliminado")
+        .gte("fecha_pedido", anterior.desde)
+        .lte("fecha_pedido", anterior.hasta),
+      // Pendiente de pago = lo mismo que "Por cobrar" en Cobranzas: pedidos ya
+      // entregados que todavía no se marcan como pagados. Es una deuda
+      // vigente, no algo que ocurrió "dentro" del período filtrado arriba,
+      // así que se consulta aparte, sin los filtros de fecha del reporte.
+      supabase.from("pedidos").select("total").eq("estado", "entregado").eq("pagado", false),
+    ]);
 
   const totalPeriodo = (pedidos ?? []).reduce((acc, p) => acc + Number(p.total), 0);
   const cantidadPedidos = (pedidos ?? []).length;
   const totalPeriodoAnterior = (pedidosAnteriores ?? []).reduce((acc, p) => acc + Number(p.total), 0);
   const cambio = formatCambio(totalPeriodo, totalPeriodoAnterior);
+
+  const listaPendientes = pedidosPendientes ?? [];
+  const totalPendienteCobro = listaPendientes.reduce((acc, p) => acc + Number(p.total), 0);
 
   let totalDescuento = 0;
   const porClienteDescuento = new Map<string, number>();
@@ -159,7 +168,7 @@ export default async function ReportesPage({
 
   // Producto más vendido dentro de cada categoría (tamaño), para saber qué
   // formato se mueve más en cada una.
-  const porCategoriaProducto = new Map<
+  const porCategoriaProducto = new Map
     Categoria,
     Map<string, { formato: Formato; cantidad: number; total: number }>
   >();
@@ -222,8 +231,14 @@ export default async function ReportesPage({
         </button>
       </form>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard label="Total vendido" value={formatCLP(totalPeriodo)} hint={`${desde} a ${hasta}`} />
+        <StatCard
+          label="Pendiente de pago"
+          value={formatCLP(totalPendienteCobro)}
+          tone={listaPendientes.length > 0 ? "warning" : "default"}
+          hint={`${listaPendientes.length} pedido${listaPendientes.length === 1 ? "" : "s"} entregado${listaPendientes.length === 1 ? "" : "s"} sin pagar`}
+        />
         <StatCard label="Pedidos" value={cantidadPedidos} hint="No cancelados" />
         <StatCard
           label="Descuentos otorgados"
