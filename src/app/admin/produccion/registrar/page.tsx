@@ -113,9 +113,17 @@ export default async function RegistrarProduccionPage({
             automáticamente
           </p>
         </div>
-        <Link href="/admin/produccion" className="text-sm text-amber-700 hover:underline">
-          Ver indicadores de producción
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link
+            href="/admin/productos/movimientos"
+            className="text-sm text-amber-700 hover:underline"
+          >
+            Ver historial de stock
+          </Link>
+          <Link href="/admin/produccion" className="text-sm text-amber-700 hover:underline">
+            Ver indicadores de producción
+          </Link>
+        </div>
       </div>
 
       {ok === "1" && (
