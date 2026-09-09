@@ -59,15 +59,19 @@ export default async function ProduccionPage() {
       .eq("motivo", MOTIVO_PRODUCCION)
       .gte("created_at", haceDias(13))
       .order("created_at", { ascending: false }),
+    // Se trae un día extra (14 en vez de 13) de mermas y recolección para
+    // poder calcular la columna "Diferencia día anterior" del día más
+    // antiguo que se muestra en la tabla, sin que ese día extra aparezca
+    // como fila (eso se filtra más abajo).
     supabase
       .from("mermas_produccion")
       .select("fecha, cantidad")
-      .gte("fecha", haceDiasFecha(13))
+      .gte("fecha", haceDiasFecha(14))
       .order("fecha", { ascending: false }),
     supabase
       .from("recoleccion_huevos")
       .select("fecha, cantidad")
-      .gte("fecha", haceDiasFecha(13))
+      .gte("fecha", haceDiasFecha(14))
       .order("fecha", { ascending: false }),
     supabase.from("plantel_gallinas").select("cantidad_actual").eq("id", "principal").single(),
     supabase
@@ -143,9 +147,22 @@ export default async function ProduccionPage() {
     };
   });
 
+  // Total del día (recolectados + rotos) para una fecha cualquiera — se usa
+  // tanto en la columna "Total del día" de la tabla como para calcular la
+  // diferencia contra el día anterior.
+  function totalDelDiaFn(fecha: string) {
+    return (huevosPorDia.get(fecha) ?? 0) + (mermaPorDia.get(fecha) ?? 0);
+  }
+
+  // Solo se muestran los últimos 14 días como filas. El día 15 (hace 14
+  // días) se trajo únicamente como referencia para calcular la diferencia
+  // del día más antiguo visible, así que se descarta acá.
+  const inicioVentana = sumarDias(hoy, -13);
   const diasOrdenados = [
     ...new Set([...totalPorDia.keys(), ...mermaPorDia.keys(), ...huevosPorDia.keys()]),
-  ].sort((a, b) => b.localeCompare(a));
+  ]
+    .filter((d) => d >= inicioVentana)
+    .sort((a, b) => b.localeCompare(a));
   const totalHoy = totalPorDia.get(hoy) ?? 0;
   const mermaHoy = mermaPorDia.get(hoy) ?? 0;
   const huevosHoy = huevosPorDia.get(hoy) ?? 0;
@@ -203,23 +220,23 @@ export default async function ProduccionPage() {
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard
           label={`Producción de hoy (${formatFecha(hoy)})`}
-          value={`${totalHoy} unidades`}
+          value={`${totalHoy}`}
           hint="ya registradas hoy en el sistema"
         />
         <StatCard
           label="Huevos recolectados hoy"
-          value={`${huevosHoy} unidades`}
+          value={`${huevosHoy}`}
           hint="total del día, antes de clasificar"
         />
         <StatCard
           label="Huevos rotos hoy"
-          value={`${mermaHoy} unidades`}
+          value={`${mermaHoy}`}
           tone={mermaHoy > 0 ? "danger" : "default"}
           hint="no salen al mercado"
         />
         <StatCard
           label="Total del día"
-          value={`${totalHuevosDiaHoy} unidades`}
+          value={`${totalHuevosDiaHoy}`}
           hint="recolectados + rotos"
         />
         <StatCard
@@ -280,33 +297,48 @@ export default async function ProduccionPage() {
                 <th className="pb-2 text-right font-medium">Huevos recolectados</th>
                 <th className="pb-2 text-right font-medium">Huevos rotos</th>
                 <th className="pb-2 text-right font-medium">Total del día</th>
+                <th className="pb-2 text-right font-medium">Diferencia día anterior</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
-              {diasOrdenados.map((dia) => (
-                <tr key={dia}>
-                  <td className="py-2 text-stone-700">
-                    {formatFecha(dia)}
-                    {dia === hoy && (
-                      <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                        Hoy
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-2 text-right font-semibold text-stone-800">
-                    {totalPorDia.get(dia) ?? 0}
-                  </td>
-                  <td className="py-2 text-right font-semibold text-stone-800">
-                    {huevosPorDia.get(dia) ?? 0}
-                  </td>
-                  <td className="py-2 text-right font-semibold text-red-600">
-                    {mermaPorDia.get(dia) ?? 0}
-                  </td>
-                  <td className="py-2 text-right font-semibold text-stone-800">
-                    {(huevosPorDia.get(dia) ?? 0) + (mermaPorDia.get(dia) ?? 0)}
-                  </td>
-                </tr>
-              ))}
+              {diasOrdenados.map((dia) => {
+                const totalDia = totalDelDiaFn(dia);
+                const diaAnterior = sumarDias(dia, -1);
+                const diferencia = totalDia - totalDelDiaFn(diaAnterior);
+                return (
+                  <tr key={dia}>
+                    <td className="py-2 text-stone-700">
+                      {formatFecha(dia)}
+                      {dia === hoy && (
+                        <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                          Hoy
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-2 text-right font-semibold text-stone-800">
+                      {totalPorDia.get(dia) ?? 0}
+                    </td>
+                    <td className="py-2 text-right font-semibold text-stone-800">
+                      {huevosPorDia.get(dia) ?? 0}
+                    </td>
+                    <td className="py-2 text-right font-semibold text-red-600">
+                      {mermaPorDia.get(dia) ?? 0}
+                    </td>
+                    <td className="py-2 text-right font-semibold text-stone-800">{totalDia}</td>
+                    <td
+                      className={`py-2 text-right font-semibold ${
+                        diferencia > 0
+                          ? "text-green-600"
+                          : diferencia < 0
+                            ? "text-red-600"
+                            : "text-stone-400"
+                      }`}
+                    >
+                      {diferencia > 0 ? `+${diferencia}` : diferencia}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
