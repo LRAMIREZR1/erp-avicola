@@ -9,10 +9,10 @@ export interface ProduccionCajasDatum {
   etiqueta: string;
   caja120: number;
   caja180: number;
-  // Total de huevos recolectados ese día (dato manual, aparte de las
-  // cajas/bandejas). 0 significa "no se registró ese día", no "cero
-  // producción" — así que esos días quedan como hueco en la línea, no como
-  // una caída a cero.
+  // Total de huevos del día (recolectados + rotos), aparte de las
+  // cajas/bandejas ya envasadas. 0 significa "no se registró ese día", no
+  // "cero producción" — así que esos días quedan como hueco en la línea, no
+  // como una caída a cero.
   totalHuevos: number;
 }
 
@@ -48,8 +48,9 @@ interface HoverInfo {
 // más claro, arriba) = total de cajas producidas ese día. Una línea punteada
 // gris marca el promedio del período (misma escala que las barras). Otra
 // línea punteada, índigo y con su propio eje a la derecha, traza el total
-// de huevos recolectados por día — va en un eje aparte porque la magnitud
-// (cientos/miles de huevos) no tiene nada que ver con la cantidad de cajas.
+// de huevos del día (recolectados + rotos) — va en un eje aparte porque la
+// magnitud (cientos/miles de huevos) no tiene nada que ver con la cantidad
+// de cajas.
 export default function ProduccionCajasChart({ data }: { data: ProduccionCajasDatum[] }) {
   const [hover, setHover] = useState<HoverInfo | null>(null);
 
@@ -124,7 +125,7 @@ export default function ProduccionCajasChart({ data }: { data: ProduccionCajasDa
               className="inline-block h-0 w-3.5 border-t-2 border-dotted"
               style={{ borderColor: COLOR_HUEVOS }}
             />
-            Total de huevos recolectados (eje derecho)
+            Total de huevos del día (eje derecho)
           </div>
         )}
       </div>
@@ -134,7 +135,7 @@ export default function ProduccionCajasChart({ data }: { data: ProduccionCajasDa
           viewBox={`0 0 ${width} ${height}`}
           className="w-full"
           role="img"
-          aria-label="Producción diaria de cajas y total de huevos recolectados, últimos días"
+          aria-label="Producción diaria de cajas y total de huevos del día, últimos días"
         >
           {/* gridlines (escala de cajas, eje izquierdo) */}
           {ticks.map((t) => (
@@ -296,7 +297,7 @@ export default function ProduccionCajasChart({ data }: { data: ProduccionCajasDa
             <span className="font-medium text-stone-800">{hover.caja180}</span>
             {hover.totalHuevos > 0 && (
               <>
-                <span className="text-stone-500"> · Huevos: </span>
+                <span className="text-stone-500"> · Total del día: </span>
                 <span className="font-medium text-stone-800">
                   {hover.totalHuevos.toLocaleString("es-CL")}
                 </span>
