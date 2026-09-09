@@ -7,6 +7,7 @@ import StatCard from "@/components/StatCard";
 import ProduccionCajasChart, {
   type ProduccionCajasDatum,
 } from "@/components/ProduccionCajasChart";
+import PosturaChart, { type PosturaDatum } from "@/components/PosturaChart";
 import {
   NOMBRES_CATEGORIA,
   NOMBRES_FORMATO,
@@ -127,6 +128,8 @@ export default async function ProduccionPage({
     { data: mermasData },
     { data: huevosData },
     { data: plantel },
+    { data: mortandadData },
+    { data: historicoData },
   ] = await Promise.all([
     supabase.from("productos").select("*").eq("activo", true),
     supabase
@@ -146,6 +149,15 @@ export default async function ProduccionPage({
       .gte("fecha", haceDiasFecha(13))
       .order("fecha", { ascending: false }),
     supabase.from("plantel_gallinas").select("cantidad_actual").eq("id", "principal").single(),
+    supabase
+      .from("mortandad_gallinas")
+      .select("fecha, cantidad")
+      .gte("fecha", haceDiasFecha(13))
+      .order("fecha", { ascending: false }),
+    supabase
+      .from("plantel_gallinas_historico")
+      .select("fecha, cantidad")
+      .gte("fecha", haceDiasFecha(13)),
   ]);
 
   const todos = [...(productos ?? [])].sort((a, b) => {
@@ -186,6 +198,21 @@ export default async function ProduccionPage({
     huevosPorDia.set(h.fecha, (huevosPorDia.get(h.fecha) ?? 0) + h.cantidad);
   }
 
+  const mortandadPorDia = new Map<string, number>();
+  for (const m of mortandadData ?? []) {
+    mortandadPorDia.set(m.fecha, (mortandadPorDia.get(m.fecha) ?? 0) + m.cantidad);
+  }
+
+  // Snapshot real del plantel guardado día a día (queda registrado solo al
+  // registrar mortandad, un ajuste de plantel, o la producción del día — ver
+  // actions.ts). Es el valor autoritativo cuando existe; los días sin
+  // snapshot (por ejemplo, antes de empezar a usar esta tabla) se rellenan
+  // más abajo con la reconstrucción a partir de la mortandad, como respaldo.
+  const historicoPorDia = new Map<string, number>();
+  for (const h of historicoData ?? []) {
+    historicoPorDia.set(h.fecha, h.cantidad);
+  }
+
   // Los últimos 14 días en orden cronológico (de más antiguo a más
   // reciente), con 0 en los días sin producción/recolección registrada —
   // así el gráfico muestra huecos reales (ej. domingos sin recolección) en
@@ -214,11 +241,43 @@ export default async function ProduccionPage({
   // del día, aparte de las cajas ya envasadas.
   const totalHuevosDiaHoy = huevosHoy + mermaHoy;
   const gallinasActivas = plantel?.cantidad_actual ?? 0;
-  // % de postura = huevos puestos hoy (recolectados + rotos) / gallinas
-  // activas — el indicador estándar del rubro. Sin plantel cargado no se
-  // puede calcular.
+
+  // Para cuántas gallinas había CADA día de los últimos 14, se usa primero
+  // el snapshot real guardado en plantel_gallinas_historico. Si un día no
+  // tiene snapshot (por ejemplo, días de antes de empezar a usar esta
+  // tabla), se cae de respaldo a la reconstrucción de siempre: partiendo del
+  // plantel actual y sumando de vuelta las mortandades desde ese día hasta
+  // hoy (recorriendo de más reciente a más antiguo). Ese respaldo no
+  // contempla ajustes manuales de plantel dentro de la ventana (compras,
+  // correcciones) que no hayan quedado con snapshot propio.
+  const gallinasPorDia = new Map<string, number>();
+  let acumuladoMortandad = 0;
+  for (let i = datosGraficoCajas.length - 1; i >= 0; i--) {
+    const fecha = datosGraficoCajas[i].fecha;
+    acumuladoMortandad += mortandadPorDia.get(fecha) ?? 0;
+    gallinasPorDia.set(
+      fecha,
+      historicoPorDia.get(fecha) ?? gallinasActivas + acumuladoMortandad,
+    );
+  }
+  const gallinasHoyInicioDeDia = gallinasPorDia.get(hoy) ?? gallinasActivas;
+
+  // % de postura = huevos puestos hoy (recolectados + rotos) / gallinas que
+  // había al comenzar el día — el indicador estándar del rubro. Sin plantel
+  // cargado no se puede calcular.
   const porcentajePostura =
-    gallinasActivas > 0 ? (totalHuevosDiaHoy / gallinasActivas) * 100 : null;
+    gallinasHoyInicioDeDia > 0 ? (totalHuevosDiaHoy / gallinasHoyInicioDeDia) * 100 : null;
+
+  // Mismo cálculo día a día para el gráfico de tendencia, usando el plantel
+  // reconstruido de cada día en vez del valor actual fijo.
+  const datosPostura: PosturaDatum[] = datosGraficoCajas.map((d) => {
+    const gallinasEseDia = gallinasPorDia.get(d.fecha) ?? 0;
+    return {
+      fecha: d.fecha,
+      etiqueta: d.etiqueta,
+      porcentaje: gallinasEseDia > 0 ? (d.totalHuevos / gallinasEseDia) * 100 : 0,
+    };
+  });
 
   return (
     <div className="space-y-6">
@@ -272,7 +331,7 @@ export default async function ProduccionPage({
           hint={
             porcentajePostura === null
               ? "carga el plantel en Mortandad"
-              : `${gallinasActivas} gallinas activas`
+              : `${gallinasHoyInicioDeDia} gallinas activas`
           }
         />
       </div>
@@ -282,6 +341,23 @@ export default async function ProduccionPage({
           Producción de cajas — últimos 14 días
         </p>
         <ProduccionCajasChart data={datosGraficoCajas} />
+      </div>
+
+      <div className="rounded-2xl border border-stone-200 bg-white p-4">
+        <p className="mb-3 text-sm font-medium text-stone-700">
+          % de postura — últimos 14 días
+        </p>
+        {gallinasActivas > 0 ? (
+          <PosturaChart data={datosPostura} />
+        ) : (
+          <p className="py-4 text-center text-sm text-stone-400">
+            Carga el plantel de gallinas en{" "}
+            <Link href="/admin/mortandad" className="text-amber-700 hover:underline">
+              Mortandad
+            </Link>{" "}
+            para ver este gráfico
+          </p>
+        )}
       </div>
 
       <form action={registrarProduccion} className="space-y-6">
