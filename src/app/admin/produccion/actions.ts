@@ -4,6 +4,10 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { hoyChile } from "@/lib/format";
+import { obtenerRolActual } from "@/lib/roles";
+
+// YYYY-MM-DD estricto, para no aceptar cualquier texto como fecha.
+const FECHA_VALIDA = /^\d{4}-\d{2}-\d{2}$/;
 
 // Motivo fijo que usan los registros de producción diaria dentro de
 // movimientos_stock. Sirve para poder filtrarlos y distinguirlos de otras
@@ -48,6 +52,28 @@ export async function registrarProduccion(formData: FormData) {
 
   const hoy = hoyChile();
 
+  // Solo un administrador puede elegir una fecha distinta a hoy (por
+  // ejemplo, para cargar producción de un día anterior que no se alcanzó a
+  // registrar en su momento). Cualquier otro rol, o una fecha inválida/vacía
+  // o futura, siempre cae en "hoy" — mismo comportamiento de antes.
+  const rol = await obtenerRolActual();
+  const fechaSolicitada = String(formData.get("fecha") ?? "");
+  const fechaProduccion =
+    rol === "administrador" &&
+    FECHA_VALIDA.test(fechaSolicitada) &&
+    fechaSolicitada <= hoy
+      ? fechaSolicitada
+      : hoy;
+  const esHoy = fechaProduccion === hoy;
+
+  // Los movimientos de stock se agrupan por día a partir de su created_at
+  // (ver diaChileDe en lib/format). Si se está cargando producción de hoy,
+  // se deja que la base de datos use su default (now()) para no perder la
+  // hora real. Si se está registrando un día anterior, se fija el
+  // created_at a media mañana (hora Chile, cubriendo tanto UTC-3 como
+  // UTC-4) de esa fecha, para que quede agrupado en el día correcto.
+  const createdAtProduccion = esHoy ? undefined : `${fechaProduccion}T15:00:00.000Z`;
+
   // El plantel de gallinas se guarda en plantel_gallinas (una sola fila con
   // el valor vigente) y ese valor ya lo mantiene al día en tiempo real
   // registrarMortandad/ajustarPlantel. Al registrar la producción de hoy,
@@ -56,7 +82,9 @@ export async function registrarProduccion(formData: FormData) {
   // cierre de ayer" si es que hoy todavía no hubo ninguna mortandad. Se usa
   // ignoreDuplicates para no pisar un snapshot que ya haya quedado más
   // temprano en el día (por ejemplo si ya se registró mortandad de hoy antes
-  // de cargar la producción).
+  // de cargar la producción). Si se está cargando un día ANTERIOR, este
+  // snapshot se omite a propósito: el plantel actual ya no representa cuántas
+  // gallinas había ese día pasado, así que guardarlo ahí sería incorrecto.
   const { data: plantel } = await supabase
     .from("plantel_gallinas")
     .select("cantidad_actual")
@@ -64,12 +92,16 @@ export async function registrarProduccion(formData: FormData) {
     .single();
 
   await Promise.all([
-    supabase
-      .from("plantel_gallinas_historico")
-      .upsert(
-        { fecha: hoy, cantidad: plantel?.cantidad_actual ?? 0 },
-        { onConflict: "fecha", ignoreDuplicates: true },
-      ),
+    ...(esHoy
+      ? [
+          supabase
+            .from("plantel_gallinas_historico")
+            .upsert(
+              { fecha: hoy, cantidad: plantel?.cantidad_actual ?? 0 },
+              { onConflict: "fecha", ignoreDuplicates: true },
+            ),
+        ]
+      : []),
     ...entradasStock.map(async ({ productoId, cantidad }) => {
       const { data: producto } = await supabase
         .from("productos")
@@ -90,12 +122,13 @@ export async function registrarProduccion(formData: FormData) {
         cantidad,
         motivo: MOTIVO_PRODUCCION,
         vendedor_id: user?.id ?? null,
+        ...(createdAtProduccion ? { created_at: createdAtProduccion } : {}),
       });
     }),
     ...(totalHuevos > 0
       ? [
           supabase.from("recoleccion_huevos").insert({
-            fecha: hoy,
+            fecha: fechaProduccion,
             cantidad: totalHuevos,
             vendedor_id: user?.id ?? null,
           }),
@@ -104,7 +137,7 @@ export async function registrarProduccion(formData: FormData) {
     ...(merma > 0
       ? [
           supabase.from("mermas_produccion").insert({
-            fecha: hoy,
+            fecha: fechaProduccion,
             cantidad: merma,
             vendedor_id: user?.id ?? null,
           }),
