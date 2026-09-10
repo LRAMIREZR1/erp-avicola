@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireRol } from "@/lib/roles";
 import { registrarProduccion } from "@/app/admin/produccion/actions";
+import { hoyChile } from "@/lib/format";
 import {
   NOMBRES_CATEGORIA,
   NOMBRES_FORMATO,
@@ -88,9 +89,10 @@ export default async function RegistrarProduccionPage({
 }: {
   searchParams: Promise<{ ok?: string }>;
 }) {
-  await requireRol(["administrador", "encargado_bodega"]);
+  const rol = await requireRol(["administrador", "encargado_bodega"]);
   const { ok } = await searchParams;
   const supabase = await createClient();
+  const hoy = hoyChile();
 
   const { data: productos } = await supabase.from("productos").select("*").eq("activo", true);
 
@@ -123,6 +125,31 @@ export default async function RegistrarProduccionPage({
       )}
 
       <form action={registrarProduccion} className="space-y-6">
+        {rol === "administrador" && (
+          <div className="space-y-3">
+            <div>
+              <h2 className="text-sm font-semibold text-stone-700">Fecha de la producción</h2>
+              <p className="text-xs text-stone-400">
+                Por defecto es hoy. Cámbiala solo si estás cargando la producción de un día
+                anterior que no se alcanzó a registrar en su momento.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-stone-50 p-4">
+              <label htmlFor="fecha" className="text-sm font-medium text-stone-800">
+                Fecha
+              </label>
+              <input
+                id="fecha"
+                type="date"
+                name="fecha"
+                defaultValue={hoy}
+                max={hoy}
+                className="rounded-lg border border-stone-300 px-2 py-1 text-sm focus:border-amber-600 focus:outline-none"
+              />
+            </div>
+          </div>
+        )}
+
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-stone-700">Bandejas (30 un.)</h2>
           <TablaProduccion productos={bandejas} mostrarFormato={false} />
@@ -185,7 +212,7 @@ export default async function RegistrarProduccionPage({
           type="submit"
           className="rounded-lg bg-amber-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-amber-800"
         >
-          Registrar producción de hoy
+          Registrar producción
         </button>
         <p className="text-xs text-stone-400">
           Deja en blanco (o en 0) lo que hoy no tuvo movimiento. Si te equivocaste en una cantidad
