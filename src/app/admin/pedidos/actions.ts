@@ -259,13 +259,13 @@ export async function editarPedido(
 // en qué estado estaba para poder devolverlo ahí con restaurarPedido. Si el
 // pedido tenía stock comprometido, se repone automáticamente (mismo trigger
 // que usa cancelar); al restaurar, se vuelve a descontar.
-export async function borrarPedido(pedidoId: string) {
+export async function borrarPedido(pedidoId: string): Promise<{ error?: string }> {
   "use server";
   const supabase = await createClient();
   const { error } = await supabase.rpc("eliminar_pedido", { p_pedido_id: pedidoId });
 
   if (error) {
-    throw new Error("No se pudo eliminar el pedido: " + error.message);
+    return { error: "No se pudo eliminar el pedido: " + error.message };
   }
 
   revalidatePath("/admin/pedidos");
@@ -274,13 +274,13 @@ export async function borrarPedido(pedidoId: string) {
   redirect("/admin/pedidos");
 }
 
-export async function restaurarPedido(pedidoId: string) {
+export async function restaurarPedido(pedidoId: string): Promise<{ error?: string }> {
   "use server";
   const supabase = await createClient();
   const { error } = await supabase.rpc("restaurar_pedido", { p_pedido_id: pedidoId });
 
   if (error) {
-    throw new Error("No se pudo restaurar el pedido: " + error.message);
+    return { error: "No se pudo restaurar el pedido: " + error.message };
   }
 
   revalidatePath("/admin/pedidos");
@@ -289,6 +289,7 @@ export async function restaurarPedido(pedidoId: string) {
   revalidatePath("/admin/productos");
   revalidatePath("/admin/cobranzas");
   revalidatePath("/admin/reparto");
+  return {};
 }
 
 // Borrado definitivo (DELETE real, sin vuelta atrás) de un pedido que ya
@@ -297,16 +298,17 @@ export async function restaurarPedido(pedidoId: string) {
 // pedido ya esté eliminado; los movimientos de stock asociados se
 // conservan (solo se desvincula el pedido_id) para no perder la auditoría
 // del inventario.
-export async function borrarPedidoDefinitivo(pedidoId: string) {
+export async function borrarPedidoDefinitivo(pedidoId: string): Promise<{ error?: string }> {
   "use server";
   const supabase = await createClient();
   const { error } = await supabase.rpc("eliminar_pedido_definitivo", { p_pedido_id: pedidoId });
 
   if (error) {
-    throw new Error("No se pudo borrar definitivamente el pedido: " + error.message);
+    return { error: "No se pudo borrar definitivamente el pedido: " + error.message };
   }
 
   revalidatePath("/admin/pedidos");
   revalidatePath("/admin");
   revalidatePath("/admin/productos");
+  return {};
 }
