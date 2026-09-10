@@ -53,7 +53,7 @@ export interface Producto {
   created_at: string;
 }
 
-export type OrigenPedido = "pedido" | "venta_directa";
+export type OrigenPedido = "pedido" | "venta_directa" | "portal";
 
 export interface Pedido {
   id: string;
