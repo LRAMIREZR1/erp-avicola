@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { crearPedido, editarPedido } from "@/app/admin/pedidos/actions";
 import { crearClienteRapido } from "@/app/admin/clientes/actions";
+import BotonEnviarPedido from "@/components/BotonEnviarPedido";
 import { formatCLP } from "@/lib/format";
 import type { Cliente, Producto } from "@/lib/supabase/types";
 
@@ -304,12 +305,7 @@ export default function PedidoForm({
         />
       </div>
 
-      <button
-        type="submit"
-        className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800"
-      >
-        {modo === "editar" ? "Guardar cambios" : "Crear pedido"}
-      </button>
+      <BotonEnviarPedido modo={modo} />
     </form>
 
     {mostrarModalCliente && (
