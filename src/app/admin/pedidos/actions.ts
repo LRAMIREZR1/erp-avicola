@@ -202,3 +202,23 @@ export async function restaurarPedido(pedidoId: string) {
   revalidatePath("/admin/cobranzas");
   revalidatePath("/admin/reparto");
 }
+
+// Borrado definitivo (DELETE real, sin vuelta atrás) de un pedido que ya
+// está en "Eliminados" — para que Administrador pueda limpiar la base de
+// datos. La función en la base valida que sea administrador y que el
+// pedido ya esté eliminado; los movimientos de stock asociados se
+// conservan (solo se desvincula el pedido_id) para no perder la auditoría
+// del inventario.
+export async function borrarPedidoDefinitivo(pedidoId: string) {
+  "use server";
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("eliminar_pedido_definitivo", { p_pedido_id: pedidoId });
+
+  if (error) {
+    throw new Error("No se pudo borrar definitivamente el pedido: " + error.message);
+  }
+
+  revalidatePath("/admin/pedidos");
+  revalidatePath("/admin");
+  revalidatePath("/admin/productos");
+}
