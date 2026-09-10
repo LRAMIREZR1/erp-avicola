@@ -24,6 +24,73 @@ async function obtenerPreciosLista(
   return new Map((data ?? []).map((p) => [p.id, Number(p.precio)]));
 }
 
+// stock_actual solo se descuenta cuando un pedido llega a "confirmado" (o
+// más adelante), así que mientras está recién creado (pendiente) refleja el
+// stock realmente disponible — comparamos directo contra eso. Si el pedido
+// que se está editando ya estaba en un estado que compromete stock
+// (confirmado / en_preparacion / entregado), sus propias cantidades ya están
+// restadas de stock_actual, así que se devuelven a la bolsa disponible antes
+// de comparar (editar_items_pedido hace exactamente lo mismo: repone y
+// vuelve a descontar).
+async function verificarStockDisponible(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  items: LineaPedido[],
+  pedidoActualId?: string
+) {
+  const idsUnicos = [...new Set(items.map((i) => i.producto_id))];
+  if (idsUnicos.length === 0) return;
+
+  const { data: productos } = await supabase
+    .from("productos")
+    .select("id, nombre, stock_actual")
+    .in("id", idsUnicos);
+
+  const stockMap = new Map(
+    (productos ?? []).map((p) => [p.id, { nombre: p.nombre, stock: Number(p.stock_actual) }])
+  );
+
+  const reservaPropia = new Map<string, number>();
+  if (pedidoActualId) {
+    const { data: pedidoActual } = await supabase
+      .from("pedidos")
+      .select("estado")
+      .eq("id", pedidoActualId)
+      .single();
+
+    const compromete =
+      !!pedidoActual && ["confirmado", "en_preparacion", "entregado"].includes(pedidoActual.estado);
+
+    if (compromete) {
+      const { data: itemsActuales } = await supabase
+        .from("pedido_items")
+        .select("producto_id, cantidad")
+        .eq("pedido_id", pedidoActualId);
+
+      for (const it of itemsActuales ?? []) {
+        reservaPropia.set(it.producto_id, (reservaPropia.get(it.producto_id) ?? 0) + it.cantidad);
+      }
+    }
+  }
+
+  // Suma las cantidades por producto: el formulario podría repetir el mismo
+  // producto en más de una línea.
+  const solicitado = new Map<string, number>();
+  for (const i of items) {
+    solicitado.set(i.producto_id, (solicitado.get(i.producto_id) ?? 0) + i.cantidad);
+  }
+
+  for (const [productoId, cantidadSolicitada] of solicitado) {
+    const producto = stockMap.get(productoId);
+    if (!producto) continue;
+    const disponible = producto.stock + (reservaPropia.get(productoId) ?? 0);
+    if (cantidadSolicitada > disponible) {
+      throw new Error(
+        `No hay stock suficiente de "${producto.nombre}" (disponible: ${disponible}, solicitado: ${cantidadSolicitada}). Por favor contacta directamente a la avícola para coordinar este pedido.`
+      );
+    }
+  }
+}
+
 export async function crearPedido(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -42,6 +109,8 @@ export async function crearPedido(formData: FormData) {
 
   if (!clienteId) throw new Error("Debes seleccionar un cliente");
   if (items.length === 0) throw new Error("Agrega al menos un producto al pedido");
+
+  await verificarStockDisponible(supabase, items);
 
   const precioListaMap = await obtenerPreciosLista(
     supabase,
@@ -117,6 +186,8 @@ export async function editarPedido(pedidoId: string, formData: FormData) {
 
   if (!clienteId) throw new Error("Debes seleccionar un cliente");
   if (items.length === 0) throw new Error("Agrega al menos un producto al pedido");
+
+  await verificarStockDisponible(supabase, items, pedidoId);
 
   const { data: pedidoActual } = await supabase
     .from("pedidos")
