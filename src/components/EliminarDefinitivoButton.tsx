@@ -1,20 +1,23 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState } from "react";
 import { borrarPedidoDefinitivo } from "@/app/admin/pedidos/actions";
 
 export default function EliminarDefinitivoButton({ pedidoId }: { pedidoId: string }) {
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
 
-  function handleClick() {
+  async function handleClick() {
     const confirmado = window.confirm(
       "¿Borrar este pedido definitivamente de la base de datos? A diferencia de \"Eliminar\", esto NO se puede deshacer — no va a quedar ni en el filtro \"Eliminados\"."
     );
     if (!confirmado) return;
 
-    startTransition(() => {
-      borrarPedidoDefinitivo(pedidoId);
-    });
+    setPending(true);
+    const resultado = await borrarPedidoDefinitivo(pedidoId);
+    setPending(false);
+    if (resultado?.error) {
+      window.alert(resultado.error);
+    }
   }
 
   return (
