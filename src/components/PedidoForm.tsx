@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { crearPedido, editarPedido } from "@/app/admin/pedidos/actions";
+import { useActionState, useMemo, useState } from "react";
+import { crearPedido, editarPedido, type PedidoFormState } from "@/app/admin/pedidos/actions";
 import { crearClienteRapido } from "@/app/admin/clientes/actions";
 import BotonEnviarPedido from "@/components/BotonEnviarPedido";
 import { formatCLP } from "@/lib/format";
@@ -130,11 +130,19 @@ export default function PedidoForm({
   }
 
   const accion = modo === "editar" && pedidoId ? editarPedido.bind(null, pedidoId) : crearPedido;
+  const estadoInicial: PedidoFormState = {};
+  const [estado, enviarFormulario] = useActionState(accion, estadoInicial);
 
   return (
     <>
-    <form action={accion} className="max-w-2xl space-y-5">
+    <form action={enviarFormulario} className="max-w-2xl space-y-5">
       <input type="hidden" name="items" value={JSON.stringify(lineas)} />
+
+      {estado?.error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {estado.error}
+        </div>
+      )}
 
       <div>
         <div className="mb-1 flex items-center justify-between">
