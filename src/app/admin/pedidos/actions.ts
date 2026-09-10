@@ -12,6 +12,16 @@ interface LineaPedido {
   precio_unitario: number;
 }
 
+// Estado que usan crearPedido/editarPedido junto a useActionState en
+// PedidoForm. En Next los errores que se "throw" dentro de una Server
+// Action que corre desde un <form action={...}> llegan al cliente con el
+// mensaje oculto en producción (queda un error genérico de React) — por
+// eso estos "errores esperados" (validación, stock, etc.) se devuelven
+// como valor en vez de lanzarse, siguiendo el patrón que recomienda Next.
+export interface PedidoFormState {
+  error?: string;
+}
+
 // Trae el precio de catálogo actual de cada producto, para guardarlo como
 // "precio de lista" junto al precio realmente cobrado (permite trackear descuentos).
 async function obtenerPreciosLista(
@@ -36,9 +46,9 @@ async function verificarStockDisponible(
   supabase: Awaited<ReturnType<typeof createClient>>,
   items: LineaPedido[],
   pedidoActualId?: string
-) {
+): Promise<string | null> {
   const idsUnicos = [...new Set(items.map((i) => i.producto_id))];
-  if (idsUnicos.length === 0) return;
+  if (idsUnicos.length === 0) return null;
 
   const { data: productos } = await supabase
     .from("productos")
@@ -84,14 +94,16 @@ async function verificarStockDisponible(
     if (!producto) continue;
     const disponible = producto.stock + (reservaPropia.get(productoId) ?? 0);
     if (cantidadSolicitada > disponible) {
-      throw new Error(
-        `No hay stock suficiente de "${producto.nombre}" (disponible: ${disponible}, solicitado: ${cantidadSolicitada}). Por favor contacta directamente a la avícola para coordinar este pedido.`
-      );
+      return `No hay stock suficiente de "${producto.nombre}" (disponible: ${disponible}, solicitado: ${cantidadSolicitada}). Por favor contacta directamente a la avícola para coordinar este pedido.`;
     }
   }
+  return null;
 }
 
-export async function crearPedido(formData: FormData) {
+export async function crearPedido(
+  _estadoAnterior: PedidoFormState,
+  formData: FormData
+): Promise<PedidoFormState> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -107,10 +119,11 @@ export async function crearPedido(formData: FormData) {
     (i: LineaPedido) => i.producto_id && i.cantidad > 0
   );
 
-  if (!clienteId) throw new Error("Debes seleccionar un cliente");
-  if (items.length === 0) throw new Error("Agrega al menos un producto al pedido");
+  if (!clienteId) return { error: "Debes seleccionar un cliente" };
+  if (items.length === 0) return { error: "Agrega al menos un producto al pedido" };
 
-  await verificarStockDisponible(supabase, items);
+  const errorStock = await verificarStockDisponible(supabase, items);
+  if (errorStock) return { error: errorStock };
 
   const precioListaMap = await obtenerPreciosLista(
     supabase,
@@ -133,7 +146,7 @@ export async function crearPedido(formData: FormData) {
     .single();
 
   if (error || !pedido) {
-    throw new Error("No se pudo crear el pedido: " + error?.message);
+    return { error: "No se pudo crear el pedido: " + error?.message };
   }
 
   await supabase.from("pedido_items").insert(
@@ -170,8 +183,11 @@ export async function cambiarEstadoPedido(pedidoId: string, estado: EstadoPedido
   revalidatePath("/admin/reparto/historial");
 }
 
-export async function editarPedido(pedidoId: string, formData: FormData) {
-  "use server";
+export async function editarPedido(
+  pedidoId: string,
+  _estadoAnterior: PedidoFormState,
+  formData: FormData
+): Promise<PedidoFormState> {
   const supabase = await createClient();
 
   const clienteId = String(formData.get("cliente_id"));
@@ -184,10 +200,11 @@ export async function editarPedido(pedidoId: string, formData: FormData) {
     (i: LineaPedido) => i.producto_id && i.cantidad > 0
   );
 
-  if (!clienteId) throw new Error("Debes seleccionar un cliente");
-  if (items.length === 0) throw new Error("Agrega al menos un producto al pedido");
+  if (!clienteId) return { error: "Debes seleccionar un cliente" };
+  if (items.length === 0) return { error: "Agrega al menos un producto al pedido" };
 
-  await verificarStockDisponible(supabase, items, pedidoId);
+  const errorStock = await verificarStockDisponible(supabase, items, pedidoId);
+  if (errorStock) return { error: errorStock };
 
   const { data: pedidoActual } = await supabase
     .from("pedidos")
@@ -210,7 +227,7 @@ export async function editarPedido(pedidoId: string, formData: FormData) {
     .eq("id", pedidoId);
 
   if (updateError) {
-    throw new Error("No se pudo actualizar el pedido: " + updateError.message);
+    return { error: "No se pudo actualizar el pedido: " + updateError.message };
   }
 
   const precioListaMap = await obtenerPreciosLista(
@@ -227,7 +244,7 @@ export async function editarPedido(pedidoId: string, formData: FormData) {
   });
 
   if (itemsError) {
-    throw new Error("No se pudieron actualizar los productos del pedido: " + itemsError.message);
+    return { error: "No se pudieron actualizar los productos del pedido: " + itemsError.message };
   }
 
   revalidatePath("/admin/pedidos");
