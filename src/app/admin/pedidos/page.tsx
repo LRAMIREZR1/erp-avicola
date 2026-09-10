@@ -6,6 +6,7 @@ import EstadoSelector from "@/components/EstadoSelector";
 import EstadoBadge from "@/components/EstadoBadge";
 import BorrarPedidoButton from "@/components/BorrarPedidoButton";
 import RestaurarPedidoButton from "@/components/RestaurarPedidoButton";
+import EliminarDefinitivoButton from "@/components/EliminarDefinitivoButton";
 import { requireRol } from "@/lib/roles";
 import { NOMBRES_ESTADO, type EstadoPedido, type OrigenPedido } from "@/lib/supabase/types";
 
@@ -155,7 +156,10 @@ export default async function PedidosPage({
               )}
             {rol === "administrador" &&
               (p.estado === "eliminado" ? (
-                <RestaurarPedidoButton pedidoId={p.id} />
+                <>
+                  <RestaurarPedidoButton pedidoId={p.id} />
+                  <EliminarDefinitivoButton pedidoId={p.id} />
+                </>
               ) : (
                 <BorrarPedidoButton pedidoId={p.id} />
               ))}
