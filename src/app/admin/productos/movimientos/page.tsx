@@ -216,8 +216,13 @@ export default async function MovimientosStockPage({
                       <td className="px-4 py-3 text-stone-400">{formatFechaHora(m.created_at)}</td>
                       {rol === "administrador" && (
                         <td className="px-4 py-3 text-right">
-                          {m.tipo === "ajuste" && (
-                            <EliminarMovimientoButton movimientoId={m.id} />
+                          {!m.pedido_id && (
+                            <EliminarMovimientoButton
+                              movimientoId={m.id}
+                              productoNombre={m.productos?.nombre ?? "este producto"}
+                              tipo={m.tipo}
+                              cantidad={m.cantidad}
+                            />
                           )}
                         </td>
                       )}
