@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireRol } from "@/lib/roles";
 import { registrarProduccion } from "@/app/admin/produccion/actions";
 import { hoyChile } from "@/lib/format";
+import BotonRegistrarProduccion from "@/components/BotonRegistrarProduccion";
 import {
   NOMBRES_CATEGORIA,
   NOMBRES_FORMATO,
@@ -208,12 +209,7 @@ export default async function RegistrarProduccionPage({
           </div>
         </div>
 
-        <button
-          type="submit"
-          className="rounded-lg bg-amber-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-amber-800"
-        >
-          Registrar producción
-        </button>
+        <BotonRegistrarProduccion />
         <p className="text-xs text-stone-400">
           Deja en blanco (o en 0) lo que hoy no tuvo movimiento. Si te equivocaste en una cantidad
           ya registrada, corrígelo con &quot;Ajustar stock&quot; en Productos y stock (para
