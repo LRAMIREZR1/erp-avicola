@@ -1,15 +1,18 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState } from "react";
 import { restaurarPedido } from "@/app/admin/pedidos/actions";
 
 export default function RestaurarPedidoButton({ pedidoId }: { pedidoId: string }) {
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
 
-  function handleClick() {
-    startTransition(() => {
-      restaurarPedido(pedidoId);
-    });
+  async function handleClick() {
+    setPending(true);
+    const resultado = await restaurarPedido(pedidoId);
+    setPending(false);
+    if (resultado?.error) {
+      window.alert(resultado.error);
+    }
   }
 
   return (
