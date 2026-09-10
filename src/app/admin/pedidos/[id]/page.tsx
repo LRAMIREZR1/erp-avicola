@@ -6,6 +6,7 @@ import EstadoSelector from "@/components/EstadoSelector";
 import EstadoBadge from "@/components/EstadoBadge";
 import BorrarPedidoButton from "@/components/BorrarPedidoButton";
 import RestaurarPedidoButton from "@/components/RestaurarPedidoButton";
+import EliminarDefinitivoButton from "@/components/EliminarDefinitivoButton";
 import EstadoPagoToggle from "@/components/EstadoPagoToggle";
 import { requireRol } from "@/lib/roles";
 
@@ -88,7 +89,10 @@ export default async function DetallePedidoPage({
             )}
           {rol === "administrador" &&
             (pedido.estado === "eliminado" ? (
-              <RestaurarPedidoButton pedidoId={pedido.id} />
+              <>
+                <RestaurarPedidoButton pedidoId={pedido.id} />
+                <EliminarDefinitivoButton pedidoId={pedido.id} />
+              </>
             ) : (
               <BorrarPedidoButton pedidoId={pedido.id} />
             ))}
