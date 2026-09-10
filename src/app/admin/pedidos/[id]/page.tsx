@@ -17,11 +17,14 @@ export default async function DetallePedidoPage({
   const rol = await requireRol(["administrador", "vendedor"]);
   const { id } = await params;
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const { data: pedido } = await supabase
     .from("pedidos")
     .select(
-      "id, estado, total, fecha_pedido, fecha_entrega, notas, pagado, fecha_pago, motivo_descuento, clientes(nombre, telefono, direccion, zona_entrega), vendedores(nombre)"
+      "id, estado, origen, vendedor_id, total, fecha_pedido, fecha_entrega, notas, pagado, fecha_pago, motivo_descuento, clientes(nombre, telefono, direccion, zona_entrega), vendedores(nombre)"
     )
     .eq("id", id)
     .single();
@@ -56,7 +59,14 @@ export default async function DetallePedidoPage({
     <div className="max-w-2xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold text-stone-800">Pedido de {cliente?.nombre}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-semibold text-stone-800">Pedido de {cliente?.nombre}</h1>
+            {pedido.origen === "portal" && (
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                Enviado desde el portal
+              </span>
+            )}
+          </div>
           <p className="text-sm text-stone-500">
             {formatFecha(pedido.fecha_pedido)} · Vendedor: {vendedor?.nombre ?? "—"}
           </p>
@@ -82,6 +92,9 @@ export default async function DetallePedidoPage({
             ) : (
               <BorrarPedidoButton pedidoId={pedido.id} />
             ))}
+          {rol === "vendedor" && pedido.estado === "pendiente" && pedido.vendedor_id === user?.id && (
+            <BorrarPedidoButton pedidoId={pedido.id} />
+          )}
         </div>
       </div>
 
