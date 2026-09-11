@@ -7,6 +7,7 @@ import {
 } from "@/app/admin/precio-mercado/actions";
 import StatCard from "@/components/StatCard";
 import EliminarPrecioMercadoButton from "@/components/EliminarPrecioMercadoButton";
+import BotonRegistrarPrecioMercado from "@/components/BotonRegistrarPrecioMercado";
 import {
   NOMBRES_CATEGORIA,
   NOMBRES_REGION_ODEPA,
@@ -253,12 +254,7 @@ export default async function PrecioMercadoPage({
               className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
             />
           </div>
-          <button
-            type="submit"
-            className="rounded-lg bg-amber-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-amber-800"
-          >
-            Registrar precio
-          </button>
+          <BotonRegistrarPrecioMercado />
         </form>
       </div>
 
