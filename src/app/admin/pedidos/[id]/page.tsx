@@ -105,7 +105,7 @@ export default async function DetallePedidoPage({
       </div>
 
       {pedido.estado === "entregado" && (
-        <div className="space-y-4 rounded-2xl border border-stone-200 bg-white p-4">
+        <div id="cobro" className="space-y-4 scroll-mt-4 rounded-2xl border border-stone-200 bg-white p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-stone-700">Cobro</p>
