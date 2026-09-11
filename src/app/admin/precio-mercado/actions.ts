@@ -10,7 +10,7 @@ import { hoyChile } from "@/lib/format";
 // distribuidor o un comprador). No hay validación cruzada posible — es
 // información de boca en boca, así que se guarda tal cual se ingresa.
 export async function registrarPrecioMercado(formData: FormData) {
-  await requireRol(["administrador", "vendedor"]);
+  await requireRol(["administrador"]);
   const supabase = await createClient();
   const {
     data: { user },
