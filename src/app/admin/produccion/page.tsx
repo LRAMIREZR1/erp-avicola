@@ -295,7 +295,7 @@ export default async function ProduccionPage() {
           // líneas), se puede deslizar el dedo hacia los lados para verla
           // completa.
           <div className="-mx-4 overflow-x-auto px-4">
-            <table className="w-full min-w-[720px] text-left text-sm">
+            <table className="w-full min-w-[800px] text-left text-sm">
               <thead>
                 <tr className="text-xs uppercase text-stone-500">
                   <th className="whitespace-nowrap pb-2 font-medium">Día</th>
@@ -310,13 +310,19 @@ export default async function ProduccionPage() {
                   <th className="whitespace-nowrap pb-2 text-right font-medium">
                     Diferencia día anterior
                   </th>
+                  <th className="whitespace-nowrap pb-2 text-right font-medium">Diferencia %</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
                 {diasOrdenados.map((dia) => {
                   const totalDia = totalDelDiaFn(dia);
                   const diaAnterior = sumarDias(dia, -1);
-                  const diferencia = totalDia - totalDelDiaFn(diaAnterior);
+                  const totalAnterior = totalDelDiaFn(diaAnterior);
+                  const diferencia = totalDia - totalAnterior;
+                  // Si el día anterior no tuvo producción (0), el % de
+                  // cambio no se puede calcular (dividir por 0) — se
+                  // muestra "—" en vez de un número engañoso.
+                  const diferenciaPct = totalAnterior > 0 ? (diferencia / totalAnterior) * 100 : null;
                   return (
                     <tr key={dia}>
                       <td className="whitespace-nowrap py-2 text-stone-700">
@@ -349,6 +355,21 @@ export default async function ProduccionPage() {
                         }`}
                       >
                         {diferencia > 0 ? `+${diferencia}` : diferencia}
+                      </td>
+                      <td
+                        className={`whitespace-nowrap py-2 text-right font-semibold ${
+                          diferenciaPct === null
+                            ? "text-stone-400"
+                            : diferenciaPct > 0
+                              ? "text-green-600"
+                              : diferenciaPct < 0
+                                ? "text-red-600"
+                                : "text-stone-400"
+                        }`}
+                      >
+                        {diferenciaPct === null
+                          ? "—"
+                          : `${diferenciaPct > 0 ? "+" : ""}${diferenciaPct.toFixed(1)}%`}
                       </td>
                     </tr>
                   );
