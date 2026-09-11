@@ -103,7 +103,7 @@ export default async function ReportesPage({
       // del reporte, para que todos los cuadros hablen del mismo período.
       supabase
         .from("pedidos")
-        .select("total")
+        .select("id, total")
         .eq("estado", "entregado")
         .eq("pagado", false)
         .gte("fecha_pedido", desde)
@@ -116,7 +116,25 @@ export default async function ReportesPage({
   const cambio = formatCambio(totalPeriodo, totalPeriodoAnterior);
 
   const listaPendientes = pedidosPendientes ?? [];
-  const totalPendienteCobro = listaPendientes.reduce((acc, p) => acc + Number(p.total), 0);
+  // Un pedido "sin pagar" puede tener abonos parciales ya registrados — se
+  // descuentan para que este cuadro muestre el saldo real, igual que en
+  // Cobranzas.
+  const idsPendientes = listaPendientes.map((p) => p.id);
+  const { data: abonosPendientes } =
+    idsPendientes.length > 0
+      ? await supabase.from("abonos_pedido").select("pedido_id, monto").in("pedido_id", idsPendientes)
+      : { data: [] };
+  const abonadoPorPedidoPendiente = new Map<string, number>();
+  for (const a of abonosPendientes ?? []) {
+    abonadoPorPedidoPendiente.set(
+      a.pedido_id,
+      (abonadoPorPedidoPendiente.get(a.pedido_id) ?? 0) + Number(a.monto)
+    );
+  }
+  const totalPendienteCobro = listaPendientes.reduce(
+    (acc, p) => acc + Math.max(0, Number(p.total) - (abonadoPorPedidoPendiente.get(p.id) ?? 0)),
+    0
+  );
 
   let totalDescuento = 0;
   const porClienteDescuento = new Map<string, number>();
@@ -174,7 +192,7 @@ export default async function ReportesPage({
 
   // Producto más vendido dentro de cada categoría (tamaño), para saber qué
   // formato se mueve más en cada una.
-    const porCategoriaProducto = new Map<
+  const porCategoriaProducto = new Map
     Categoria,
     Map<string, { formato: Formato; cantidad: number; total: number }>
   >();
