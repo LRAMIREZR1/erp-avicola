@@ -34,6 +34,7 @@ const SECCIONES: NavSeccion[] = [
       { href: "/admin/ventas", label: "Venta directa", roles: ["administrador"] },
       { href: "/admin/clientes", label: "Clientes", roles: ["administrador", "vendedor"] },
       { href: "/admin/cobranzas", label: "Cobranzas", roles: ["administrador", "vendedor"] },
+      { href: "/admin/panel-ventas", label: "Panel de control", roles: ["administrador"] },
     ],
   },
   {
