@@ -53,7 +53,7 @@ export interface Producto {
   created_at: string;
 }
 
-export type OrigenPedido = "pedido" | "venta_directa" | "portal";
+export type OrigenPedido = "pedido" | "venta_directa";
 
 export interface Pedido {
   id: string;
@@ -114,4 +114,27 @@ export const NOMBRES_ESTADO: Record<EstadoPedido, string> = {
   entregado: "Entregado",
   cancelado: "Cancelado",
   eliminado: "Eliminado",
+};
+
+export type ZonaPrecioMercado = "maule" | "santiago" | "otra";
+export type UnidadPrecioMercado = "kilo" | "docena" | "bandeja_30" | "caja_120" | "caja_180";
+export type RegionOdepa = "maule" | "metropolitana";
+
+export const NOMBRES_ZONA: Record<ZonaPrecioMercado, string> = {
+  maule: "Maule",
+  santiago: "Santiago",
+  otra: "Otra zona",
+};
+
+export const NOMBRES_UNIDAD_PRECIO: Record<UnidadPrecioMercado, string> = {
+  kilo: "por kilo",
+  docena: "por docena",
+  bandeja_30: "por bandeja de 30",
+  caja_120: "por caja de 120",
+  caja_180: "por caja de 180",
+};
+
+export const NOMBRES_REGION_ODEPA: Record<RegionOdepa, string> = {
+  maule: "Maule",
+  metropolitana: "Región Metropolitana",
 };
