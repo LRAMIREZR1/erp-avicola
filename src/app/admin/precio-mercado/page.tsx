@@ -61,7 +61,7 @@ export default async function PrecioMercadoPage({
 }: {
   searchParams: Promise<{ ok?: string }>;
 }) {
-  const rol = await requireRol(["administrador", "vendedor"]);
+  const rol = await requireRol(["administrador"]);
   const { ok } = await searchParams;
   const supabase = await createClient();
   const hoy = hoyChile();
