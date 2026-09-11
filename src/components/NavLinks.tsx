@@ -47,6 +47,11 @@ const SECCIONES: NavSeccion[] = [
         roles: ["administrador", "encargado_bodega"],
       },
       {
+        href: "/admin/productos",
+        label: "Productos y stock",
+        roles: ["administrador", "vendedor", "encargado_bodega"],
+      },
+      {
         href: "/admin/produccion/registrar",
         label: "Registrar producción",
         roles: ["administrador", "encargado_bodega"],
@@ -60,11 +65,6 @@ const SECCIONES: NavSeccion[] = [
         href: "/admin/reparto",
         label: "Reparto",
         roles: ["administrador", "vendedor", "encargado_bodega", "repartidor"],
-      },
-      {
-        href: "/admin/productos",
-        label: "Productos y stock",
-        roles: ["administrador", "vendedor", "encargado_bodega"],
       },
     ],
   },
