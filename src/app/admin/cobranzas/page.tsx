@@ -184,17 +184,27 @@ export default async function CobranzasPage({
                         : "Sin pagar"}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    {rol === "administrador" ? (
-                      <EstadoPagoToggle pedidoId={p.id} pagado={p.pagado} />
-                    ) : (
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-medium ${
-                          p.pagado ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
-                        }`}
-                      >
-                        {p.pagado ? "Pagado ✓" : "Sin pagar"}
-                      </span>
-                    )}
+                    <div className="flex items-center justify-end gap-2">
+                      {!p.pagado && (
+                        <Link
+                          href={`/admin/pedidos/${p.id}#cobro`}
+                          className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700 hover:bg-stone-200"
+                        >
+                          Abonar
+                        </Link>
+                      )}
+                      {rol === "administrador" ? (
+                        <EstadoPagoToggle pedidoId={p.id} pagado={p.pagado} />
+                      ) : (
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-medium ${
+                            p.pagado ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                          }`}
+                        >
+                          {p.pagado ? "Pagado ✓" : "Sin pagar"}
+                        </span>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
