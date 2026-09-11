@@ -51,9 +51,25 @@ export default async function CobranzasPage({
     );
   }
 
+  // Abonos ya registrados para los pedidos que se muestran, para poder
+  // restar del total y mostrar el saldo real que falta cobrar (un pedido
+  // puede estar "sin pagar" pero ya tener parte abonada).
+  const idsLista = lista.map((p) => p.id);
+  const { data: abonosData } =
+    idsLista.length > 0
+      ? await supabase.from("abonos_pedido").select("pedido_id, monto").in("pedido_id", idsLista)
+      : { data: [] };
+  const abonadoPorPedido = new Map<string, number>();
+  for (const a of abonosData ?? []) {
+    abonadoPorPedido.set(a.pedido_id, (abonadoPorPedido.get(a.pedido_id) ?? 0) + Number(a.monto));
+  }
+  function saldoDe(p: { id: string; total: number }) {
+    return Math.max(0, Number(p.total) - (abonadoPorPedido.get(p.id) ?? 0));
+  }
+
   const pendientes = lista.filter((p) => !p.pagado);
   const pagados = lista.filter((p) => p.pagado);
-  const totalPendiente = pendientes.reduce((acc, p) => acc + Number(p.total), 0);
+  const totalPendiente = pendientes.reduce((acc, p) => acc + saldoDe(p), 0);
   const totalCobrado = pagados.reduce((acc, p) => acc + Number(p.total), 0);
 
   const filtros: { label: string; value?: string }[] = [
@@ -117,11 +133,15 @@ export default async function CobranzasPage({
               const items = ((p as unknown as { pedido_items: ItemDetalle[] | null }).pedido_items ??
                 []) as ItemDetalle[];
               const dias = diasDesde(p.fecha_entrega ?? p.fecha_pedido);
+              const abonado = abonadoPorPedido.get(p.id) ?? 0;
+              const saldo = saldoDe(p);
               return (
                 <tr key={p.id} className="hover:bg-stone-50">
                   <td className="px-4 py-3 font-medium text-stone-800">
-                    {(p as unknown as { clientes: { nombre: string } | null }).clientes?.nombre ??
-                      "—"}
+                    <Link href={`/admin/pedidos/${p.id}`} className="hover:underline">
+                      {(p as unknown as { clientes: { nombre: string } | null }).clientes?.nombre ??
+                        "—"}
+                    </Link>
                   </td>
                   <td className="px-4 py-3 text-stone-600">
                     {p.fecha_entrega ? formatFecha(p.fecha_entrega) : formatFecha(p.fecha_pedido)}
@@ -141,6 +161,11 @@ export default async function CobranzasPage({
                   </td>
                   <td className="px-4 py-3 font-medium text-stone-800">
                     {formatCLP(Number(p.total))}
+                    {!p.pagado && abonado > 0 && (
+                      <p className="text-xs font-normal text-amber-700">
+                        Saldo: {formatCLP(saldo)} (abonado {formatCLP(abonado)})
+                      </p>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     {p.pagado ? (
@@ -152,7 +177,11 @@ export default async function CobranzasPage({
                     )}
                   </td>
                   <td className="px-4 py-3 text-stone-500">
-                    {p.pagado && p.fecha_pago ? `Pagado el ${formatFecha(p.fecha_pago)}` : "Sin pagar"}
+                    {p.pagado && p.fecha_pago
+                      ? `Pagado el ${formatFecha(p.fecha_pago)}`
+                      : abonado > 0
+                        ? "Abonado parcial"
+                        : "Sin pagar"}
                   </td>
                   <td className="px-4 py-3 text-right">
                     {rol === "administrador" ? (
