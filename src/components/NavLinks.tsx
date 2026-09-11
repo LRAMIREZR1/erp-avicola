@@ -34,11 +34,6 @@ const SECCIONES: NavSeccion[] = [
       { href: "/admin/ventas", label: "Venta directa", roles: ["administrador"] },
       { href: "/admin/clientes", label: "Clientes", roles: ["administrador", "vendedor"] },
       { href: "/admin/cobranzas", label: "Cobranzas", roles: ["administrador", "vendedor"] },
-      {
-        href: "/admin/precio-mercado",
-        label: "Precio de mercado",
-        roles: ["administrador", "vendedor"],
-      },
     ],
   },
   {
@@ -70,6 +65,18 @@ const SECCIONES: NavSeccion[] = [
         href: "/admin/reparto",
         label: "Reparto",
         roles: ["administrador", "vendedor", "encargado_bodega", "repartidor"],
+      },
+    ],
+  },
+  {
+    titulo: "Mercado",
+    caja: "border-violet-300 bg-violet-100",
+    tituloColor: "text-violet-800",
+    links: [
+      {
+        href: "/admin/precio-mercado",
+        label: "Precio de mercado",
+        roles: ["administrador"],
       },
     ],
   },
