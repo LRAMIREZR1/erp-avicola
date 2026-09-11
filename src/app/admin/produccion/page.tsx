@@ -289,58 +289,73 @@ export default async function ProduccionPage() {
             Aún no hay producción ni mermas registradas
           </p>
         ) : (
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="text-xs uppercase text-stone-500">
-                <th className="pb-2 font-medium">Día</th>
-                <th className="pb-2 text-right font-medium">Total producido</th>
-                <th className="pb-2 text-right font-medium">Huevos recolectados</th>
-                <th className="pb-2 text-right font-medium">Huevos rotos</th>
-                <th className="pb-2 text-right font-medium">Total del día</th>
-                <th className="pb-2 text-right font-medium">Diferencia día anterior</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100">
-              {diasOrdenados.map((dia) => {
-                const totalDia = totalDelDiaFn(dia);
-                const diaAnterior = sumarDias(dia, -1);
-                const diferencia = totalDia - totalDelDiaFn(diaAnterior);
-                return (
-                  <tr key={dia}>
-                    <td className="py-2 text-stone-700">
-                      {formatFecha(dia)}
-                      {dia === hoy && (
-                        <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                          Hoy
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-2 text-right font-semibold text-stone-800">
-                      {totalPorDia.get(dia) ?? 0}
-                    </td>
-                    <td className="py-2 text-right font-semibold text-stone-800">
-                      {huevosPorDia.get(dia) ?? 0}
-                    </td>
-                    <td className="py-2 text-right font-semibold text-red-600">
-                      {mermaPorDia.get(dia) ?? 0}
-                    </td>
-                    <td className="py-2 text-right font-semibold text-stone-800">{totalDia}</td>
-                    <td
-                      className={`py-2 text-right font-semibold ${
-                        diferencia > 0
-                          ? "text-green-600"
-                          : diferencia < 0
-                            ? "text-red-600"
-                            : "text-stone-400"
-                      }`}
-                    >
-                      {diferencia > 0 ? `+${diferencia}` : diferencia}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          // overflow-x-auto + min-w en la tabla: en el celular la tabla no
+          // entra completa en el ancho de la pantalla, así que en vez de
+          // apretujar las columnas (y que los títulos se corten en varias
+          // líneas), se puede deslizar el dedo hacia los lados para verla
+          // completa.
+          <div className="-mx-4 overflow-x-auto px-4">
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead>
+                <tr className="text-xs uppercase text-stone-500">
+                  <th className="whitespace-nowrap pb-2 font-medium">Día</th>
+                  <th className="whitespace-nowrap pb-2 text-right font-medium">
+                    Total producido
+                  </th>
+                  <th className="whitespace-nowrap pb-2 text-right font-medium">
+                    Huevos recolectados
+                  </th>
+                  <th className="whitespace-nowrap pb-2 text-right font-medium">Huevos rotos</th>
+                  <th className="whitespace-nowrap pb-2 text-right font-medium">Total del día</th>
+                  <th className="whitespace-nowrap pb-2 text-right font-medium">
+                    Diferencia día anterior
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-100">
+                {diasOrdenados.map((dia) => {
+                  const totalDia = totalDelDiaFn(dia);
+                  const diaAnterior = sumarDias(dia, -1);
+                  const diferencia = totalDia - totalDelDiaFn(diaAnterior);
+                  return (
+                    <tr key={dia}>
+                      <td className="whitespace-nowrap py-2 text-stone-700">
+                        {formatFecha(dia)}
+                        {dia === hoy && (
+                          <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                            Hoy
+                          </span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap py-2 text-right font-semibold text-stone-800">
+                        {totalPorDia.get(dia) ?? 0}
+                      </td>
+                      <td className="whitespace-nowrap py-2 text-right font-semibold text-stone-800">
+                        {huevosPorDia.get(dia) ?? 0}
+                      </td>
+                      <td className="whitespace-nowrap py-2 text-right font-semibold text-red-600">
+                        {mermaPorDia.get(dia) ?? 0}
+                      </td>
+                      <td className="whitespace-nowrap py-2 text-right font-semibold text-stone-800">
+                        {totalDia}
+                      </td>
+                      <td
+                        className={`whitespace-nowrap py-2 text-right font-semibold ${
+                          diferencia > 0
+                            ? "text-green-600"
+                            : diferencia < 0
+                              ? "text-red-600"
+                              : "text-stone-400"
+                        }`}
+                      >
+                        {diferencia > 0 ? `+${diferencia}` : diferencia}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>
