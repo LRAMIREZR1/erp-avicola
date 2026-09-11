@@ -82,6 +82,16 @@ export interface PedidoItem {
   subtotal: number;
 }
 
+export interface AbonoPedido {
+  id: string;
+  pedido_id: string;
+  monto: number;
+  fecha: string;
+  nota: string | null;
+  vendedor_id: string | null;
+  created_at: string;
+}
+
 export interface MovimientoStock {
   id: string;
   producto_id: string;
