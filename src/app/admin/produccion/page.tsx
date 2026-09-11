@@ -258,4 +258,133 @@ export default async function ProduccionPage() {
       </div>
 
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
-        <p className="mb-3
+        <p className="mb-3 text-sm font-medium text-stone-700">
+          % de postura — últimos 14 días
+        </p>
+        {gallinasActivas > 0 ? (
+          <PosturaChart data={datosPostura} />
+        ) : (
+          <p className="py-4 text-center text-sm text-stone-400">
+            Carga el plantel de gallinas en{" "}
+            <Link href="/admin/mortandad" className="text-amber-700 hover:underline">
+              Mortandad
+            </Link>{" "}
+            para ver este gráfico
+          </p>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-stone-200 bg-white p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-sm font-medium text-stone-700">Últimos 14 días</p>
+          <Link
+            href="/admin/productos/movimientos"
+            className="text-sm text-amber-700 hover:underline"
+          >
+            Ver detalle
+          </Link>
+        </div>
+        {diasOrdenados.length === 0 ? (
+          <p className="py-4 text-center text-sm text-stone-400">
+            Aún no hay producción ni mermas registradas
+          </p>
+        ) : (
+          // overflow-x-auto + min-w en la tabla: en el celular la tabla no
+          // entra completa en el ancho de la pantalla, así que en vez de
+          // apretujar las columnas (y que los títulos se corten en varias
+          // líneas), se puede deslizar el dedo hacia los lados para verla
+          // completa.
+          <div className="-mx-4 overflow-x-auto px-4">
+            <table className="w-full min-w-[920px] text-left text-sm">
+              <thead>
+                <tr className="text-xs uppercase text-stone-500">
+                  <th className="whitespace-nowrap py-2 pr-3 font-medium">Día</th>
+                  <th className="whitespace-nowrap py-2 px-3 text-right font-medium">
+                    Total producido
+                  </th>
+                  <th className="whitespace-nowrap py-2 px-3 text-right font-medium">
+                    Huevos recolectados
+                  </th>
+                  <th className="whitespace-nowrap py-2 px-3 text-right font-medium">
+                    Huevos rotos
+                  </th>
+                  <th className="whitespace-nowrap py-2 px-3 text-right font-medium">
+                    Total del día
+                  </th>
+                  <th className="whitespace-nowrap py-2 px-3 text-right font-medium">
+                    Diferencia día anterior
+                  </th>
+                  <th className="whitespace-nowrap py-2 pl-3 text-right font-medium">
+                    Diferencia %
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-100">
+                {diasOrdenados.map((dia) => {
+                  const totalDia = totalDelDiaFn(dia);
+                  const diaAnterior = sumarDias(dia, -1);
+                  const totalAnterior = totalDelDiaFn(diaAnterior);
+                  const diferencia = totalDia - totalAnterior;
+                  // Si el día anterior no tuvo producción (0), el % de
+                  // cambio no se puede calcular (dividir por 0) — se
+                  // muestra "—" en vez de un número engañoso.
+                  const diferenciaPct = totalAnterior > 0 ? (diferencia / totalAnterior) * 100 : null;
+                  return (
+                    <tr key={dia}>
+                      <td className="whitespace-nowrap py-2 pr-3 text-stone-700">
+                        {formatFecha(dia)}
+                        {dia === hoy && (
+                          <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                            Hoy
+                          </span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap py-2 px-3 text-right font-semibold text-stone-800">
+                        {totalPorDia.get(dia) ?? 0}
+                      </td>
+                      <td className="whitespace-nowrap py-2 px-3 text-right font-semibold text-stone-800">
+                        {huevosPorDia.get(dia) ?? 0}
+                      </td>
+                      <td className="whitespace-nowrap py-2 px-3 text-right font-semibold text-red-600">
+                        {mermaPorDia.get(dia) ?? 0}
+                      </td>
+                      <td className="whitespace-nowrap py-2 px-3 text-right font-semibold text-stone-800">
+                        {totalDia}
+                      </td>
+                      <td
+                        className={`whitespace-nowrap py-2 px-3 text-right font-semibold ${
+                          diferencia > 0
+                            ? "text-green-600"
+                            : diferencia < 0
+                              ? "text-red-600"
+                              : "text-stone-400"
+                        }`}
+                      >
+                        {diferencia > 0 ? `+${diferencia}` : diferencia}
+                      </td>
+                      <td
+                        className={`whitespace-nowrap py-2 pl-3 text-right font-semibold ${
+                          diferenciaPct === null
+                            ? "text-stone-400"
+                            : diferenciaPct > 0
+                              ? "text-green-600"
+                              : diferenciaPct < 0
+                                ? "text-red-600"
+                                : "text-stone-400"
+                        }`}
+                      >
+                        {diferenciaPct === null
+                          ? "—"
+                          : `${diferenciaPct > 0 ? "+" : ""}${diferenciaPct.toFixed(1)}%`}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
