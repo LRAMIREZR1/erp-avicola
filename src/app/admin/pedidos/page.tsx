@@ -6,9 +6,9 @@ import EstadoSelector from "@/components/EstadoSelector";
 import EstadoBadge from "@/components/EstadoBadge";
 import BorrarPedidoButton from "@/components/BorrarPedidoButton";
 import RestaurarPedidoButton from "@/components/RestaurarPedidoButton";
-import EliminarDefinitivoButton from "@/components/EliminarDefinitivoButton";
+import GrupoPedidosColapsable from "@/components/GrupoPedidosColapsable";
 import { requireRol } from "@/lib/roles";
-import { NOMBRES_ESTADO, type EstadoPedido, type OrigenPedido } from "@/lib/supabase/types";
+import { NOMBRES_ESTADO, type EstadoPedido } from "@/lib/supabase/types";
 
 // Orden operativo: lo que hay que trabajar primero arriba, lo ya cerrado al final.
 // "eliminado" no se agrupa en la vista "Todos" (queda en su propio filtro),
@@ -46,8 +46,6 @@ const FONDO_GRUPO: Record<EstadoPedido, { texto: string; borde: string }> = {
 interface Fila {
   id: string;
   estado: EstadoPedido;
-  origen: OrigenPedido;
-  vendedor_id: string | null;
   total: number;
   fecha_pedido: string;
   fecha_entrega: string | null;
@@ -63,19 +61,11 @@ export default async function PedidosPage({
   const rol = await requireRol(["administrador", "vendedor"]);
   const { estado, orden } = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   let query = supabase
     .from("pedidos")
-    .select(
-      "id, estado, origen, vendedor_id, total, fecha_pedido, fecha_entrega, clientes(nombre), vendedores(nombre)"
-    )
-    // Incluye tanto los pedidos tomados a mano (origen "pedido") como los
-    // enviados por un cliente desde su portal (origen "portal") — solo
-    // "venta_directa" tiene su propia pantalla separada ("Venta directa").
-    .neq("origen", "venta_directa")
+    .select("id, estado, total, fecha_pedido, fecha_entrega, clientes(nombre), vendedores(nombre)")
+    .eq("origen", "pedido")
     .order("created_at", { ascending: false });
 
   if (estado) {
@@ -117,16 +107,7 @@ export default async function PedidosPage({
   function filaPedido(p: Fila) {
     return (
       <tr key={p.id} className="hover:bg-stone-50">
-        <td className="px-4 py-3 font-medium text-stone-800">
-          <div className="flex items-center gap-2">
-            <span>{p.clientes?.nombre ?? "—"}</span>
-            {p.origen === "portal" && (
-              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                Portal
-              </span>
-            )}
-          </div>
-        </td>
+        <td className="px-4 py-3 font-medium text-stone-800">{p.clientes?.nombre ?? "—"}</td>
         <td className="px-4 py-3 text-stone-600">{p.vendedores?.nombre ?? "—"}</td>
         <td className="px-4 py-3 text-stone-600">{formatFecha(p.fecha_pedido)}</td>
         <td className="px-4 py-3 text-stone-600">
@@ -156,16 +137,10 @@ export default async function PedidosPage({
               )}
             {rol === "administrador" &&
               (p.estado === "eliminado" ? (
-                <>
-                  <RestaurarPedidoButton pedidoId={p.id} />
-                  <EliminarDefinitivoButton pedidoId={p.id} />
-                </>
+                <RestaurarPedidoButton pedidoId={p.id} />
               ) : (
                 <BorrarPedidoButton pedidoId={p.id} />
               ))}
-            {rol === "vendedor" && p.estado === "pendiente" && p.vendedor_id === user?.id && (
-              <BorrarPedidoButton pedidoId={p.id} />
-            )}
           </div>
         </td>
       </tr>
@@ -238,6 +213,24 @@ export default async function PedidosPage({
               ? ESTADOS_EN_ORDEN.map((est) => {
                   const grupo = lista.filter((p) => p.estado === est);
                   if (grupo.length === 0) return null;
+
+                  // Los entregados ya están cerrados: se muestran colapsados
+                  // por defecto para que la vista destaque lo que falta
+                  // trabajar (pendientes, confirmados, en preparación).
+                  if (est === "entregado") {
+                    return (
+                      <GrupoPedidosColapsable
+                        key={est}
+                        etiqueta={NOMBRES_ESTADO[est]}
+                        cantidad={grupo.length}
+                        colorTexto={FONDO_GRUPO[est].texto}
+                        colorBorde={FONDO_GRUPO[est].borde}
+                      >
+                        {grupo.map((p) => filaPedido(p))}
+                      </GrupoPedidosColapsable>
+                    );
+                  }
+
                   return (
                     <Fragment key={est}>
                       <tr className="bg-stone-50">
