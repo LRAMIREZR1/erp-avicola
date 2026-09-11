@@ -1,14 +1,17 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { formatCLP, formatFecha } from "@/lib/format";
+import { formatCLP, formatFecha, hoyChile } from "@/lib/format";
 import EstadoSelector from "@/components/EstadoSelector";
 import EstadoBadge from "@/components/EstadoBadge";
 import BorrarPedidoButton from "@/components/BorrarPedidoButton";
 import RestaurarPedidoButton from "@/components/RestaurarPedidoButton";
-import EliminarDefinitivoButton from "@/components/EliminarDefinitivoButton";
 import EstadoPagoToggle from "@/components/EstadoPagoToggle";
+import BotonAbonar from "@/components/BotonAbonar";
+import EliminarAbonoButton from "@/components/EliminarAbonoButton";
+import { registrarAbono } from "@/app/admin/cobranzas/actions";
 import { requireRol } from "@/lib/roles";
+import type { AbonoPedido } from "@/lib/supabase/types";
 
 export default async function DetallePedidoPage({
   params,
@@ -18,24 +21,31 @@ export default async function DetallePedidoPage({
   const rol = await requireRol(["administrador", "vendedor"]);
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   const { data: pedido } = await supabase
     .from("pedidos")
     .select(
-      "id, estado, origen, vendedor_id, total, fecha_pedido, fecha_entrega, notas, pagado, fecha_pago, motivo_descuento, clientes(nombre, telefono, direccion, zona_entrega), vendedores(nombre)"
+      "id, estado, total, fecha_pedido, fecha_entrega, notas, pagado, fecha_pago, motivo_descuento, clientes(nombre, telefono, direccion, zona_entrega), vendedores(nombre)"
     )
     .eq("id", id)
     .single();
 
   if (!pedido) notFound();
 
-  const { data: items } = await supabase
-    .from("pedido_items")
-    .select("id, cantidad, precio_unitario, precio_lista, subtotal, productos(nombre)")
-    .eq("pedido_id", id);
+  const [{ data: items }, { data: abonosData }] = await Promise.all([
+    supabase
+      .from("pedido_items")
+      .select("id, cantidad, precio_unitario, precio_lista, subtotal, productos(nombre)")
+      .eq("pedido_id", id),
+    pedido.estado === "entregado"
+      ? supabase
+          .from("abonos_pedido")
+          .select("id, pedido_id, monto, fecha, nota, vendedor_id, created_at")
+          .eq("pedido_id", id)
+          .order("fecha", { ascending: false })
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] as AbonoPedido[] }),
+  ]);
 
   const listaItems = items ?? [];
   const totalLista = listaItems.reduce(
@@ -43,6 +53,11 @@ export default async function DetallePedidoPage({
     0
   );
   const descuento = totalLista - Number(pedido.total);
+
+  const abonos = (abonosData ?? []) as AbonoPedido[];
+  const totalAbonado = abonos.reduce((acc, a) => acc + Number(a.monto), 0);
+  const saldoPendiente = Math.max(0, Number(pedido.total) - totalAbonado);
+  const hoy = hoyChile();
 
   const cliente = (
     pedido as unknown as {
@@ -60,14 +75,7 @@ export default async function DetallePedidoPage({
     <div className="max-w-2xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg font-semibold text-stone-800">Pedido de {cliente?.nombre}</h1>
-            {pedido.origen === "portal" && (
-              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                Enviado desde el portal
-              </span>
-            )}
-          </div>
+          <h1 className="text-lg font-semibold text-stone-800">Pedido de {cliente?.nombre}</h1>
           <p className="text-sm text-stone-500">
             {formatFecha(pedido.fecha_pedido)} · Vendedor: {vendedor?.nombre ?? "—"}
           </p>
@@ -89,31 +97,120 @@ export default async function DetallePedidoPage({
             )}
           {rol === "administrador" &&
             (pedido.estado === "eliminado" ? (
-              <>
-                <RestaurarPedidoButton pedidoId={pedido.id} />
-                <EliminarDefinitivoButton pedidoId={pedido.id} />
-              </>
+              <RestaurarPedidoButton pedidoId={pedido.id} />
             ) : (
               <BorrarPedidoButton pedidoId={pedido.id} />
             ))}
-          {rol === "vendedor" && pedido.estado === "pendiente" && pedido.vendedor_id === user?.id && (
-            <BorrarPedidoButton pedidoId={pedido.id} />
-          )}
         </div>
       </div>
 
       {pedido.estado === "entregado" && (
-        <div className="flex items-center justify-between rounded-2xl border border-stone-200 bg-white p-4">
-          <div>
-            <p className="text-sm font-medium text-stone-700">Cobro</p>
-            <p className="text-xs text-stone-500">
-              {pedido.pagado && pedido.fecha_pago
-                ? `Pagado el ${formatFecha(pedido.fecha_pago)}`
-                : "Aún no se ha registrado el pago"}
-            </p>
+        <div className="space-y-4 rounded-2xl border border-stone-200 bg-white p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-stone-700">Cobro</p>
+              <p className="text-xs text-stone-500">
+                {pedido.pagado && pedido.fecha_pago
+                  ? `Pagado el ${formatFecha(pedido.fecha_pago)}`
+                  : "Aún no se ha registrado el pago"}
+              </p>
+            </div>
+            {rol === "administrador" && (
+              <EstadoPagoToggle pedidoId={pedido.id} pagado={pedido.pagado} />
+            )}
           </div>
-          {rol === "administrador" && (
-            <EstadoPagoToggle pedidoId={pedido.id} pagado={pedido.pagado} />
+
+          {totalAbonado > 0 && (
+            <div className="grid grid-cols-3 gap-3 border-t border-stone-100 pt-3 text-sm">
+              <div>
+                <p className="text-xs text-stone-500">Total</p>
+                <p className="font-medium text-stone-800">{formatCLP(Number(pedido.total))}</p>
+              </div>
+              <div>
+                <p className="text-xs text-stone-500">Abonado</p>
+                <p className="font-medium text-green-700">{formatCLP(totalAbonado)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-stone-500">Saldo pendiente</p>
+                <p className="font-semibold text-amber-700">{formatCLP(saldoPendiente)}</p>
+              </div>
+            </div>
+          )}
+
+          {!pedido.pagado && (rol === "administrador" || rol === "vendedor") && (
+            <form
+              action={registrarAbono.bind(null, pedido.id)}
+              className="space-y-3 border-t border-stone-100 pt-3"
+            >
+              <p className="text-sm font-medium text-stone-700">Registrar abono</p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div>
+                  <label htmlFor="monto" className="mb-1 block text-xs font-medium text-stone-600">
+                    Monto (CLP)
+                  </label>
+                  <input
+                    id="monto"
+                    type="number"
+                    name="monto"
+                    min={1}
+                    max={saldoPendiente}
+                    step="1"
+                    required
+                    placeholder={`Máx. ${formatCLP(saldoPendiente)}`}
+                    className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="fecha_abono" className="mb-1 block text-xs font-medium text-stone-600">
+                    Fecha
+                  </label>
+                  <input
+                    id="fecha_abono"
+                    type="date"
+                    name="fecha"
+                    defaultValue={hoy}
+                    max={hoy}
+                    required
+                    className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="nota_abono" className="mb-1 block text-xs font-medium text-stone-600">
+                    Nota (opcional)
+                  </label>
+                  <input
+                    id="nota_abono"
+                    type="text"
+                    name="nota"
+                    placeholder="Ej: depositó por transferencia"
+                    className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+              <BotonAbonar />
+            </form>
+          )}
+
+          {abonos.length > 0 && (
+            <div className="border-t border-stone-100 pt-3">
+              <p className="mb-2 text-sm font-medium text-stone-700">Abonos registrados</p>
+              <div className="divide-y divide-stone-100">
+                {abonos.map((a) => (
+                  <div key={a.id} className="flex items-center justify-between py-2 text-sm">
+                    <div className="text-stone-600">
+                      {formatFecha(a.fecha)}
+                      {a.nota && <span className="text-stone-400"> · {a.nota}</span>}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-medium text-stone-800">{formatCLP(Number(a.monto))}</span>
+                      {rol === "administrador" && (
+                        <EliminarAbonoButton abonoId={a.id} pedidoId={pedido.id} />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       )}
