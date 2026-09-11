@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { formatCLP, hoyChile, sumarDias } from "@/lib/format";
 import { requireRol } from "@/lib/roles";
 import StatCard from "@/components/StatCard";
+import FiltroPanelVentas from "@/components/FiltroPanelVentas";
+import VentasSemanaChart, { type VentaSemanaDatum } from "@/components/VentasSemanaChart";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +34,12 @@ function formatRangoSemana(inicioLunes: string): string {
   const fin = sumarDias(inicioLunes, 6);
   const fmt = new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "short" });
   return `${fmt.format(new Date(`${inicioLunes}T00:00:00Z`))} – ${fmt.format(new Date(`${fin}T00:00:00Z`))}`;
+}
+
+// "1 sept" — etiqueta corta para el eje X del gráfico (solo el inicio).
+function formatEtiquetaSemana(inicioLunes: string): string {
+  const fmt = new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "short" });
+  return fmt.format(new Date(`${inicioLunes}T00:00:00Z`));
 }
 
 function formatCambioSemana(actual: number, anterior: number) {
@@ -127,6 +135,15 @@ export default async function PanelVentasPage({
     .sort((a, b) => b.total - a.total)
     .slice(0, 15);
 
+  const datosGrafico: VentaSemanaDatum[] = filasSemana.map((f) => ({
+    semana: f.semana,
+    etiqueta: formatEtiquetaSemana(f.semana),
+    rango: formatRangoSemana(f.semana),
+    total: f.total,
+    pedidos: f.pedidos,
+    esActual: f.esActual,
+  }));
+
   const porZona = new Map<string, number>();
   for (const p of pedidosVisibles) {
     const zona = p.clientes?.zona_entrega?.trim() || "Sin zona registrada";
@@ -141,28 +158,7 @@ export default async function PanelVentasPage({
         <p className="text-sm text-stone-500">No incluye pedidos cancelados ni eliminados</p>
       </div>
 
-      <form className="flex items-end gap-3">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-stone-600">Ver</label>
-          <select
-            name="semanas"
-            defaultValue={String(semanasNum)}
-            className="rounded-lg border border-stone-300 px-3 py-2 text-sm"
-          >
-            {OPCIONES_SEMANAS.map((n) => (
-              <option key={n} value={n}>
-                Últimas {n} semanas
-              </option>
-            ))}
-          </select>
-        </div>
-        <button
-          type="submit"
-          className="rounded-lg bg-stone-800 px-4 py-2 text-sm font-medium text-white hover:bg-stone-900"
-        >
-          Filtrar
-        </button>
-      </form>
+      <FiltroPanelVentas valorActual={semanasNum} />
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard
@@ -173,6 +169,11 @@ export default async function PanelVentasPage({
         <StatCard label="Pedidos" value={cantidadPedidos} hint="No cancelados" />
         <StatCard label="Ticket promedio" value={formatCLP(ticketPromedio)} />
         <StatCard label="Clientes activos" value={clientesActivos} hint="Compraron en el período" />
+      </div>
+
+      <div className="rounded-2xl border border-stone-200 bg-white p-4">
+        <p className="mb-3 text-sm font-medium text-stone-700">Tendencia semanal de ventas</p>
+        <VentasSemanaChart data={datosGrafico} />
       </div>
 
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
