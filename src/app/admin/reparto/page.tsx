@@ -46,18 +46,17 @@ interface GrupoReparto {
   totalPendiente: number;
 }
 
+type GrupoAcumulado = {
+  clienteId: string;
+  cliente: PedidoReparto["clientes"];
+  pedidos: PedidoReparto[];
+  itemsMap: Map<string, ItemConsolidado>;
+  total: number;
+  totalPendiente: number;
+};
+
 function agruparPorCliente(lista: PedidoReparto[]): GrupoReparto[] {
-  const grupos = new Map
-    string,
-    {
-      clienteId: string;
-      cliente: PedidoReparto["clientes"];
-      pedidos: PedidoReparto[];
-      itemsMap: Map<string, ItemConsolidado>;
-      total: number;
-      totalPendiente: number;
-    }
-  >();
+  const grupos = new Map<string, GrupoAcumulado>();
 
   for (const p of lista) {
     // Sin cliente_id (no debería pasar en pedidos normales) cada pedido
