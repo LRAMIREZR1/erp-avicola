@@ -348,11 +348,16 @@ export default async function RepartoPage() {
                               </>
                             )}
                           </div>
-                          <div className="flex flex-col items-end gap-2 print:hidden">
-                            {rol === "repartidor" ? (
-                              <MarcarEntregadoButton pedidoIds={pedidoIds} />
-                            ) : rol === "administrador" ? (
-                              <>
+                          <div className="flex flex-col items-end gap-3 print:hidden">
+                            {(rol === "repartidor" || rol === "administrador") && (
+                              <MarcarEntregadoButton
+                                pedidoIds={pedidoIds}
+                                totalPendiente={g.totalPendiente}
+                              />
+                            )}
+                            {rol === "administrador" && (
+                              <div className="flex flex-col items-end gap-2 border-t border-stone-100 pt-2">
+                                <span className="text-xs text-stone-400">Cambiar estado a mano</span>
                                 {g.pedidos.map((p, i) => (
                                   <div key={p.id} className="flex items-center gap-2">
                                     {g.pedidos.length > 1 && (
@@ -367,8 +372,9 @@ export default async function RepartoPage() {
                                     </Link>
                                   </div>
                                 ))}
-                              </>
-                            ) : (
+                              </div>
+                            )}
+                            {rol === "vendedor" && (
                               <div className="flex flex-col items-end gap-1">
                                 {g.pedidos.map((p) => (
                                   <Link
