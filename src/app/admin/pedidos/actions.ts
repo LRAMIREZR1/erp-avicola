@@ -13,6 +13,12 @@ interface LineaPedido {
   precio_unitario: number;
 }
 
+// Estado que devuelven crearPedido/editarPedido para usarse con
+// useActionState desde PedidoForm: en vez de lanzar un error (que en
+// producción llega al navegador sin el mensaje), devuelven el motivo para
+// mostrarlo directamente en el formulario.
+export type PedidoFormState = { error?: string };
+
 // Trae el precio de catálogo actual de cada producto, para guardarlo como
 // "precio de lista" junto al precio realmente cobrado (permite trackear descuentos).
 async function obtenerPreciosLista(
@@ -25,7 +31,11 @@ async function obtenerPreciosLista(
   return new Map((data ?? []).map((p) => [p.id, Number(p.precio)]));
 }
 
-export async function crearPedido(formData: FormData) {
+export async function crearPedido(
+  _prevState: PedidoFormState,
+  formData: FormData
+): Promise<PedidoFormState> {
+  "use server";
   const supabase = await createClient();
   const {
     data: { user },
@@ -41,8 +51,8 @@ export async function crearPedido(formData: FormData) {
     (i: LineaPedido) => i.producto_id && i.cantidad > 0
   );
 
-  if (!clienteId) throw new Error("Debes seleccionar un cliente");
-  if (items.length === 0) throw new Error("Agrega al menos un producto al pedido");
+  if (!clienteId) return { error: "Debes seleccionar un cliente" };
+  if (items.length === 0) return { error: "Agrega al menos un producto al pedido" };
 
   const precioListaMap = await obtenerPreciosLista(
     supabase,
@@ -65,7 +75,7 @@ export async function crearPedido(formData: FormData) {
     .single();
 
   if (error || !pedido) {
-    throw new Error("No se pudo crear el pedido: " + error?.message);
+    return { error: "No se pudo crear el pedido: " + error?.message };
   }
 
   await supabase.from("pedido_items").insert(
@@ -138,7 +148,11 @@ export async function marcarEntregadoConCobro(pedidoIds: string[], cobrado: bool
   }
 }
 
-export async function editarPedido(pedidoId: string, formData: FormData) {
+export async function editarPedido(
+  pedidoId: string,
+  _prevState: PedidoFormState,
+  formData: FormData
+): Promise<PedidoFormState> {
   "use server";
   const supabase = await createClient();
 
@@ -152,8 +166,8 @@ export async function editarPedido(pedidoId: string, formData: FormData) {
     (i: LineaPedido) => i.producto_id && i.cantidad > 0
   );
 
-  if (!clienteId) throw new Error("Debes seleccionar un cliente");
-  if (items.length === 0) throw new Error("Agrega al menos un producto al pedido");
+  if (!clienteId) return { error: "Debes seleccionar un cliente" };
+  if (items.length === 0) return { error: "Agrega al menos un producto al pedido" };
 
   const { data: pedidoActual } = await supabase
     .from("pedidos")
@@ -176,7 +190,7 @@ export async function editarPedido(pedidoId: string, formData: FormData) {
     .eq("id", pedidoId);
 
   if (updateError) {
-    throw new Error("No se pudo actualizar el pedido: " + updateError.message);
+    return { error: "No se pudo actualizar el pedido: " + updateError.message };
   }
 
   const precioListaMap = await obtenerPreciosLista(
@@ -193,7 +207,7 @@ export async function editarPedido(pedidoId: string, formData: FormData) {
   });
 
   if (itemsError) {
-    throw new Error("No se pudieron actualizar los productos del pedido: " + itemsError.message);
+    return { error: "No se pudieron actualizar los productos del pedido: " + itemsError.message };
   }
 
   revalidatePath("/admin/pedidos");
@@ -207,14 +221,15 @@ export async function editarPedido(pedidoId: string, formData: FormData) {
 // especial "eliminado" (recuperable desde el filtro "Eliminados"), guardando
 // en qué estado estaba para poder devolverlo ahí con restaurarPedido. Si el
 // pedido tenía stock comprometido, se repone automáticamente (mismo trigger
-// que usa cancelar); al restaurar, se vuelve a descontar.
-export async function borrarPedido(pedidoId: string) {
+// que usa cancelar); al restaurar, se vuelve a descontar. Devuelve el error
+// en vez de lanzarlo para que el botón pueda mostrarlo con un alert.
+export async function borrarPedido(pedidoId: string): Promise<{ error?: string } | undefined> {
   "use server";
   const supabase = await createClient();
   const { error } = await supabase.rpc("eliminar_pedido", { p_pedido_id: pedidoId });
 
   if (error) {
-    throw new Error("No se pudo eliminar el pedido: " + error.message);
+    return { error: "No se pudo eliminar el pedido: " + error.message };
   }
 
   revalidatePath("/admin/pedidos");
@@ -223,13 +238,15 @@ export async function borrarPedido(pedidoId: string) {
   redirect("/admin/pedidos");
 }
 
-export async function restaurarPedido(pedidoId: string) {
+export async function restaurarPedido(
+  pedidoId: string
+): Promise<{ error?: string } | undefined> {
   "use server";
   const supabase = await createClient();
   const { error } = await supabase.rpc("restaurar_pedido", { p_pedido_id: pedidoId });
 
   if (error) {
-    throw new Error("No se pudo restaurar el pedido: " + error.message);
+    return { error: "No se pudo restaurar el pedido: " + error.message };
   }
 
   revalidatePath("/admin/pedidos");
@@ -238,4 +255,41 @@ export async function restaurarPedido(pedidoId: string) {
   revalidatePath("/admin/productos");
   revalidatePath("/admin/cobranzas");
   revalidatePath("/admin/reparto");
+}
+
+// Borrado definitivo (distinto de "eliminar"): saca el pedido de la base de
+// datos de verdad, sin dejarlo recuperable desde "Eliminados". Por
+// seguridad, solo se puede aplicar a un pedido que ya esté en estado
+// "eliminado" — no reemplaza el borrado normal, es para limpiar pedidos que
+// ya se sabe que no sirven de nada (ej. cargados por error de prueba).
+export async function borrarPedidoDefinitivo(
+  pedidoId: string
+): Promise<{ error?: string } | undefined> {
+  "use server";
+  const supabase = await createClient();
+
+  const { data: pedido } = await supabase
+    .from("pedidos")
+    .select("estado")
+    .eq("id", pedidoId)
+    .single();
+
+  if (!pedido) {
+    return { error: "El pedido ya no existe" };
+  }
+  if (pedido.estado !== "eliminado") {
+    return {
+      error: 'Solo se pueden borrar definitivamente pedidos que ya estén en "Eliminados"',
+    };
+  }
+
+  const { error } = await supabase.from("pedidos").delete().eq("id", pedidoId);
+
+  if (error) {
+    return { error: "No se pudo borrar el pedido: " + error.message };
+  }
+
+  revalidatePath("/admin/pedidos");
+  revalidatePath("/admin");
+  redirect("/admin/pedidos");
 }
