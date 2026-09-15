@@ -4,22 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { hoyChile } from "@/lib/format";
+import { obtenerRolActual } from "@/lib/roles";
 import type { EstadoPedido } from "@/lib/supabase/types";
 
 interface LineaPedido {
   producto_id: string;
   cantidad: number;
   precio_unitario: number;
-}
-
-// Estado que usan crearPedido/editarPedido junto a useActionState en
-// PedidoForm. En Next los errores que se "throw" dentro de una Server
-// Action que corre desde un <form action={...}> llegan al cliente con el
-// mensaje oculto en producción (queda un error genérico de React) — por
-// eso estos "errores esperados" (validación, stock, etc.) se devuelven
-// como valor en vez de lanzarse, siguiendo el patrón que recomienda Next.
-export interface PedidoFormState {
-  error?: string;
 }
 
 // Trae el precio de catálogo actual de cada producto, para guardarlo como
@@ -34,76 +25,7 @@ async function obtenerPreciosLista(
   return new Map((data ?? []).map((p) => [p.id, Number(p.precio)]));
 }
 
-// stock_actual solo se descuenta cuando un pedido llega a "confirmado" (o
-// más adelante), así que mientras está recién creado (pendiente) refleja el
-// stock realmente disponible — comparamos directo contra eso. Si el pedido
-// que se está editando ya estaba en un estado que compromete stock
-// (confirmado / en_preparacion / entregado), sus propias cantidades ya están
-// restadas de stock_actual, así que se devuelven a la bolsa disponible antes
-// de comparar (editar_items_pedido hace exactamente lo mismo: repone y
-// vuelve a descontar).
-async function verificarStockDisponible(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  items: LineaPedido[],
-  pedidoActualId?: string
-): Promise<string | null> {
-  const idsUnicos = [...new Set(items.map((i) => i.producto_id))];
-  if (idsUnicos.length === 0) return null;
-
-  const { data: productos } = await supabase
-    .from("productos")
-    .select("id, nombre, stock_actual")
-    .in("id", idsUnicos);
-
-  const stockMap = new Map(
-    (productos ?? []).map((p) => [p.id, { nombre: p.nombre, stock: Number(p.stock_actual) }])
-  );
-
-  const reservaPropia = new Map<string, number>();
-  if (pedidoActualId) {
-    const { data: pedidoActual } = await supabase
-      .from("pedidos")
-      .select("estado")
-      .eq("id", pedidoActualId)
-      .single();
-
-    const compromete =
-      !!pedidoActual && ["confirmado", "en_preparacion", "entregado"].includes(pedidoActual.estado);
-
-    if (compromete) {
-      const { data: itemsActuales } = await supabase
-        .from("pedido_items")
-        .select("producto_id, cantidad")
-        .eq("pedido_id", pedidoActualId);
-
-      for (const it of itemsActuales ?? []) {
-        reservaPropia.set(it.producto_id, (reservaPropia.get(it.producto_id) ?? 0) + it.cantidad);
-      }
-    }
-  }
-
-  // Suma las cantidades por producto: el formulario podría repetir el mismo
-  // producto en más de una línea.
-  const solicitado = new Map<string, number>();
-  for (const i of items) {
-    solicitado.set(i.producto_id, (solicitado.get(i.producto_id) ?? 0) + i.cantidad);
-  }
-
-  for (const [productoId, cantidadSolicitada] of solicitado) {
-    const producto = stockMap.get(productoId);
-    if (!producto) continue;
-    const disponible = producto.stock + (reservaPropia.get(productoId) ?? 0);
-    if (cantidadSolicitada > disponible) {
-      return `No hay stock suficiente de "${producto.nombre}" (disponible: ${disponible}, solicitado: ${cantidadSolicitada}). Por favor contacta directamente a la avícola para coordinar este pedido.`;
-    }
-  }
-  return null;
-}
-
-export async function crearPedido(
-  _estadoAnterior: PedidoFormState,
-  formData: FormData
-): Promise<PedidoFormState> {
+export async function crearPedido(formData: FormData) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -119,11 +41,8 @@ export async function crearPedido(
     (i: LineaPedido) => i.producto_id && i.cantidad > 0
   );
 
-  if (!clienteId) return { error: "Debes seleccionar un cliente" };
-  if (items.length === 0) return { error: "Agrega al menos un producto al pedido" };
-
-  const errorStock = await verificarStockDisponible(supabase, items);
-  if (errorStock) return { error: errorStock };
+  if (!clienteId) throw new Error("Debes seleccionar un cliente");
+  if (items.length === 0) throw new Error("Agrega al menos un producto al pedido");
 
   const precioListaMap = await obtenerPreciosLista(
     supabase,
@@ -146,7 +65,7 @@ export async function crearPedido(
     .single();
 
   if (error || !pedido) {
-    return { error: "No se pudo crear el pedido: " + error?.message };
+    throw new Error("No se pudo crear el pedido: " + error?.message);
   }
 
   await supabase.from("pedido_items").insert(
@@ -183,11 +102,44 @@ export async function cambiarEstadoPedido(pedidoId: string, estado: EstadoPedido
   revalidatePath("/admin/reparto/historial");
 }
 
-export async function editarPedido(
-  pedidoId: string,
-  _estadoAnterior: PedidoFormState,
-  formData: FormData
-): Promise<PedidoFormState> {
+// Para el reparto: marca uno o varios pedidos (del mismo cliente, entregados
+// juntos) como "entregado" y, si el repartidor cobró en efectivo al hacer la
+// entrega, deja el pedido pagado en el mismo paso — así no hay que ir
+// después a Cobranzas a marcarlo aparte.
+export async function marcarEntregadoConCobro(pedidoIds: string[], cobrado: boolean) {
+  "use server";
+  const rol = await obtenerRolActual();
+  if (rol !== "administrador" && rol !== "repartidor") return;
+
+  const supabase = await createClient();
+  const hoy = hoyChile();
+
+  for (const pedidoId of pedidoIds) {
+    const cambios: Record<string, unknown> = {
+      estado: "entregado",
+      fecha_entregado: hoy,
+    };
+    if (cobrado) {
+      cambios.pagado = true;
+      cambios.fecha_pago = hoy;
+    }
+    await supabase.from("pedidos").update(cambios).eq("id", pedidoId);
+  }
+
+  revalidatePath("/admin/pedidos");
+  revalidatePath("/admin/reparto");
+  revalidatePath("/admin/reparto/historial");
+  revalidatePath("/admin/cobranzas");
+  revalidatePath("/admin/reportes");
+  revalidatePath("/admin/productos");
+  revalidatePath("/admin");
+  for (const pedidoId of pedidoIds) {
+    revalidatePath(`/admin/pedidos/${pedidoId}`);
+  }
+}
+
+export async function editarPedido(pedidoId: string, formData: FormData) {
+  "use server";
   const supabase = await createClient();
 
   const clienteId = String(formData.get("cliente_id"));
@@ -200,11 +152,8 @@ export async function editarPedido(
     (i: LineaPedido) => i.producto_id && i.cantidad > 0
   );
 
-  if (!clienteId) return { error: "Debes seleccionar un cliente" };
-  if (items.length === 0) return { error: "Agrega al menos un producto al pedido" };
-
-  const errorStock = await verificarStockDisponible(supabase, items, pedidoId);
-  if (errorStock) return { error: errorStock };
+  if (!clienteId) throw new Error("Debes seleccionar un cliente");
+  if (items.length === 0) throw new Error("Agrega al menos un producto al pedido");
 
   const { data: pedidoActual } = await supabase
     .from("pedidos")
@@ -227,7 +176,7 @@ export async function editarPedido(
     .eq("id", pedidoId);
 
   if (updateError) {
-    return { error: "No se pudo actualizar el pedido: " + updateError.message };
+    throw new Error("No se pudo actualizar el pedido: " + updateError.message);
   }
 
   const precioListaMap = await obtenerPreciosLista(
@@ -244,7 +193,7 @@ export async function editarPedido(
   });
 
   if (itemsError) {
-    return { error: "No se pudieron actualizar los productos del pedido: " + itemsError.message };
+    throw new Error("No se pudieron actualizar los productos del pedido: " + itemsError.message);
   }
 
   revalidatePath("/admin/pedidos");
@@ -259,13 +208,13 @@ export async function editarPedido(
 // en qué estado estaba para poder devolverlo ahí con restaurarPedido. Si el
 // pedido tenía stock comprometido, se repone automáticamente (mismo trigger
 // que usa cancelar); al restaurar, se vuelve a descontar.
-export async function borrarPedido(pedidoId: string): Promise<{ error?: string }> {
+export async function borrarPedido(pedidoId: string) {
   "use server";
   const supabase = await createClient();
   const { error } = await supabase.rpc("eliminar_pedido", { p_pedido_id: pedidoId });
 
   if (error) {
-    return { error: "No se pudo eliminar el pedido: " + error.message };
+    throw new Error("No se pudo eliminar el pedido: " + error.message);
   }
 
   revalidatePath("/admin/pedidos");
@@ -274,13 +223,13 @@ export async function borrarPedido(pedidoId: string): Promise<{ error?: string }
   redirect("/admin/pedidos");
 }
 
-export async function restaurarPedido(pedidoId: string): Promise<{ error?: string }> {
+export async function restaurarPedido(pedidoId: string) {
   "use server";
   const supabase = await createClient();
   const { error } = await supabase.rpc("restaurar_pedido", { p_pedido_id: pedidoId });
 
   if (error) {
-    return { error: "No se pudo restaurar el pedido: " + error.message };
+    throw new Error("No se pudo restaurar el pedido: " + error.message);
   }
 
   revalidatePath("/admin/pedidos");
@@ -289,26 +238,4 @@ export async function restaurarPedido(pedidoId: string): Promise<{ error?: strin
   revalidatePath("/admin/productos");
   revalidatePath("/admin/cobranzas");
   revalidatePath("/admin/reparto");
-  return {};
-}
-
-// Borrado definitivo (DELETE real, sin vuelta atrás) de un pedido que ya
-// está en "Eliminados" — para que Administrador pueda limpiar la base de
-// datos. La función en la base valida que sea administrador y que el
-// pedido ya esté eliminado; los movimientos de stock asociados se
-// conservan (solo se desvincula el pedido_id) para no perder la auditoría
-// del inventario.
-export async function borrarPedidoDefinitivo(pedidoId: string): Promise<{ error?: string }> {
-  "use server";
-  const supabase = await createClient();
-  const { error } = await supabase.rpc("eliminar_pedido_definitivo", { p_pedido_id: pedidoId });
-
-  if (error) {
-    return { error: "No se pudo borrar definitivamente el pedido: " + error.message };
-  }
-
-  revalidatePath("/admin/pedidos");
-  revalidatePath("/admin");
-  revalidatePath("/admin/productos");
-  return {};
 }
