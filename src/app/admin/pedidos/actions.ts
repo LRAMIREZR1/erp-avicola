@@ -40,6 +40,7 @@ export async function crearPedido(
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const rol = await obtenerRolActual();
 
   const clienteId = String(formData.get("cliente_id"));
   const fechaEntrega = (formData.get("fecha_entrega") as string) || null;
@@ -54,6 +55,12 @@ export async function crearPedido(
   if (!clienteId) return { error: "Debes seleccionar un cliente" };
   if (items.length === 0) return { error: "Agrega al menos un producto al pedido" };
 
+  // Solo el administrador puede dejar el pedido a nombre de otro vendedor;
+  // para cualquier otro rol (o si no eligió a nadie) queda con su propia
+  // cuenta, ignorando lo que venga en el formulario por seguridad.
+  const vendedorIdElegido = (formData.get("vendedor_id") as string) || "";
+  const vendedorId = rol === "administrador" && vendedorIdElegido ? vendedorIdElegido : user?.id ?? null;
+
   const precioListaMap = await obtenerPreciosLista(
     supabase,
     items.map((i) => i.producto_id)
@@ -63,7 +70,7 @@ export async function crearPedido(
     .from("pedidos")
     .insert({
       cliente_id: clienteId,
-      vendedor_id: user?.id ?? null,
+      vendedor_id: vendedorId,
       fecha_pedido: hoyChile(),
       fecha_entrega: fechaEntrega,
       notas,
