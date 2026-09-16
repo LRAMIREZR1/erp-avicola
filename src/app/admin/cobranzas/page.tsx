@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { diasDesde, formatCLP, formatFecha } from "@/lib/format";
 import EstadoPagoToggle from "@/components/EstadoPagoToggle";
 import StatCard from "@/components/StatCard";
+import FiltroClienteCobranzas from "@/components/FiltroClienteCobranzas";
 import { requireRol } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
@@ -22,24 +23,29 @@ function colorDias(dias: number) {
 export default async function CobranzasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ pago?: string }>;
+  searchParams: Promise<{ pago?: string; cliente_id?: string }>;
 }) {
   const rol = await requireRol(["administrador", "vendedor"]);
-  const { pago } = await searchParams;
+  const { pago, cliente_id: clienteId } = await searchParams;
   const supabase = await createClient();
 
   let query = supabase
     .from("pedidos")
     .select(
-      "id, total, fecha_pedido, fecha_entrega, pagado, fecha_pago, clientes(nombre), pedido_items(cantidad, productos(nombre))"
+      "id, cliente_id, total, fecha_pedido, fecha_entrega, pagado, fecha_pago, clientes(nombre), pedido_items(cantidad, productos(nombre))"
     )
     .eq("estado", "entregado")
     .order("fecha_entrega", { ascending: false });
 
   if (pago === "pendiente") query = query.eq("pagado", false);
   if (pago === "pagado") query = query.eq("pagado", true);
+  if (clienteId) query = query.eq("cliente_id", clienteId);
 
-  const { data: pedidos } = await query;
+  const [{ data: pedidos }, { data: clientesData }] = await Promise.all([
+    query,
+    supabase.from("clientes").select("id, nombre").order("nombre"),
+  ]);
+  const clientes = clientesData ?? [];
   let lista = pedidos ?? [];
 
   // En la vista de pendientes, mostrar primero la deuda más antigua: es la
@@ -77,6 +83,15 @@ export default async function CobranzasPage({
     { label: "Pendientes de cobro", value: "pendiente" },
     { label: "Pagados", value: "pagado" },
   ];
+  const clienteSeleccionado = clientes.find((c) => c.id === clienteId);
+
+  function hrefPago(value?: string) {
+    const params = new URLSearchParams();
+    if (value) params.set("pago", value);
+    if (clienteId) params.set("cliente_id", clienteId);
+    const query = params.toString();
+    return query ? `/admin/cobranzas?${query}` : "/admin/cobranzas";
+  }
 
   return (
     <div className="space-y-6">
@@ -87,7 +102,7 @@ export default async function CobranzasPage({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <StatCard
-          label="Por cobrar"
+          label={clienteSeleccionado ? `Debe ${clienteSeleccionado.nombre}` : "Por cobrar"}
           value={formatCLP(totalPendiente)}
           tone={pendientes.length > 0 ? "warning" : "default"}
           hint={`${pendientes.length} pedido${pendientes.length === 1 ? "" : "s"} sin pagar`}
@@ -99,20 +114,34 @@ export default async function CobranzasPage({
         />
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {filtros.map((f) => (
-          <Link
-            key={f.label}
-            href={f.value ? `/admin/cobranzas?pago=${f.value}` : "/admin/cobranzas"}
-            className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium ${
-              pago === f.value || (!pago && !f.value)
-                ? "bg-stone-800 text-white"
-                : "bg-stone-100 text-stone-600 hover:bg-stone-200"
-            }`}
-          >
-            {f.label}
-          </Link>
-        ))}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {filtros.map((f) => (
+            <Link
+              key={f.label}
+              href={hrefPago(f.value)}
+              className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium ${
+                pago === f.value || (!pago && !f.value)
+                  ? "bg-stone-800 text-white"
+                  : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+              }`}
+            >
+              {f.label}
+            </Link>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <FiltroClienteCobranzas clientes={clientes} clienteIdActual={clienteId} pagoActual={pago} />
+          {clienteId && (
+            <Link
+              href={pago ? `/admin/cobranzas?pago=${pago}` : "/admin/cobranzas"}
+              className="shrink-0 text-xs font-medium text-stone-500 hover:text-stone-800 hover:underline"
+            >
+              Quitar filtro
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
