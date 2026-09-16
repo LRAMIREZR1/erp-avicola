@@ -5,7 +5,7 @@ import { crearPedido, editarPedido, type PedidoFormState } from "@/app/admin/ped
 import { crearClienteRapido } from "@/app/admin/clientes/actions";
 import BotonEnviarPedido from "@/components/BotonEnviarPedido";
 import { formatCLP } from "@/lib/format";
-import type { Cliente, Producto } from "@/lib/supabase/types";
+import type { Cliente, Producto, Rol } from "@/lib/supabase/types";
 
 interface Linea {
   producto_id: string;
@@ -29,12 +29,16 @@ export default function PedidoForm({
   modo = "crear",
   pedidoId,
   valoresIniciales,
+  rol,
+  vendedores = [],
 }: {
   clientes: Cliente[];
   productos: Producto[];
   modo?: "crear" | "editar";
   pedidoId?: string;
   valoresIniciales?: ValoresIniciales;
+  rol?: Rol;
+  vendedores?: { id: string; nombre: string }[];
 }) {
   const [lineas, setLineas] = useState<Linea[]>(
     valoresIniciales?.items.length
@@ -170,6 +174,27 @@ export default function PedidoForm({
           ))}
         </select>
       </div>
+
+      {modo === "crear" && rol === "administrador" && vendedores.length > 0 && (
+        <div>
+          <label className="mb-1 block text-sm font-medium text-stone-700">Vendedor</label>
+          <select
+            name="vendedor_id"
+            defaultValue=""
+            className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
+          >
+            <option value="">Yo mismo</option>
+            {vendedores.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.nombre}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-stone-400">
+            Si no eliges a nadie, el pedido queda registrado a tu nombre.
+          </p>
+        </div>
+      )}
 
       <div>
         <label className="mb-1 block text-sm font-medium text-stone-700">
