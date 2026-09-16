@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { formatCLP } from "@/lib/format";
 import StatCard from "@/components/StatCard";
+import DetalleVendedorCard from "@/components/DetalleVendedorCard";
 import { requireRol } from "@/lib/roles";
 import { NOMBRES_CATEGORIA, NOMBRES_FORMATO, type Categoria, type Formato } from "@/lib/supabase/types";
 
@@ -59,6 +60,23 @@ function formatCambio(actual: number, anterior: number) {
   };
 }
 
+// Detalle de pedidos de un vendedor, para el reporte "Detalle de ventas por
+// vendedor" (resumen + lista expandible de sus pedidos en el período).
+type PedidoDetalleVendedor = {
+  pedidoId: string;
+  cliente: string;
+  fecha: string;
+  total: number;
+  unidades: number;
+};
+type DetalleVendedor = {
+  nombre: string;
+  totalVentas: number;
+  cantidadPedidos: number;
+  unidades: number;
+  pedidos: PedidoDetalleVendedor[];
+};
+
 export default async function ReportesPage({
   searchParams,
 }: {
@@ -84,7 +102,7 @@ export default async function ReportesPage({
       supabase
         .from("pedido_items")
         .select(
-          "cantidad, precio_unitario, precio_lista, subtotal, productos(nombre, categoria, formato), pedidos!inner(fecha_pedido, estado, clientes(nombre))"
+          "pedido_id, cantidad, precio_unitario, precio_lista, subtotal, productos(nombre, categoria, formato), pedidos!inner(fecha_pedido, estado, clientes(nombre))"
         )
         .neq("pedidos.estado", "cancelado")
         .neq("pedidos.estado", "eliminado")
@@ -164,6 +182,48 @@ export default async function ReportesPage({
       "Sin asignar";
     porVendedor.set(nombre, (porVendedor.get(nombre) ?? 0) + Number(p.total));
   }
+
+  // Unidades vendidas por pedido (sumando todas sus líneas), para el detalle
+  // por vendedor de más abajo.
+  const unidadesPorPedido = new Map<string, number>();
+  for (const item of itemsVendidos ?? []) {
+    const pedidoId = (item as unknown as { pedido_id: string }).pedido_id;
+    unidadesPorPedido.set(pedidoId, (unidadesPorPedido.get(pedidoId) ?? 0) + item.cantidad);
+  }
+
+  // Detalle de ventas por vendedor: total, cantidad de pedidos, unidades, y
+  // el listado de sus pedidos del período (para el reporte expandible).
+  const porVendedorDetalle = new Map<string, DetalleVendedor>();
+  for (const p of pedidos ?? []) {
+    const nombre =
+      (p as unknown as { vendedores: { nombre: string } | null }).vendedores?.nombre ??
+      "Sin asignar";
+    const cliente =
+      (p as unknown as { clientes: { nombre: string } | null }).clientes?.nombre ?? "Cliente";
+    const actual = porVendedorDetalle.get(nombre) ?? {
+      nombre,
+      totalVentas: 0,
+      cantidadPedidos: 0,
+      unidades: 0,
+      pedidos: [],
+    };
+    const unidadesPedido = unidadesPorPedido.get(p.id) ?? 0;
+    actual.totalVentas += Number(p.total);
+    actual.cantidadPedidos += 1;
+    actual.unidades += unidadesPedido;
+    actual.pedidos.push({
+      pedidoId: p.id,
+      cliente,
+      fecha: p.fecha_pedido,
+      total: Number(p.total),
+      unidades: unidadesPedido,
+    });
+    porVendedorDetalle.set(nombre, actual);
+  }
+  for (const detalle of porVendedorDetalle.values()) {
+    detalle.pedidos.sort((a, b) => b.fecha.localeCompare(a.fecha));
+  }
+  const detalleVendedores = [...porVendedorDetalle.values()].sort((a, b) => b.totalVentas - a.totalVentas);
 
   const porProducto = new Map<string, { cantidad: number; total: number }>();
   for (const item of itemsVendidos ?? []) {
@@ -361,6 +421,27 @@ export default async function ReportesPage({
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      <div>
+        <p className="mb-3 text-sm font-medium text-stone-700">Detalle de ventas por vendedor</p>
+        <div className="space-y-3">
+          {detalleVendedores.map((v) => (
+            <DetalleVendedorCard
+              key={v.nombre}
+              nombre={v.nombre}
+              totalVentas={v.totalVentas}
+              cantidadPedidos={v.cantidadPedidos}
+              unidades={v.unidades}
+              pedidos={v.pedidos}
+            />
+          ))}
+          {detalleVendedores.length === 0 && (
+            <div className="rounded-2xl border border-stone-200 bg-white p-4">
+              <p className="py-4 text-center text-sm text-stone-400">Sin datos en este período</p>
+            </div>
+          )}
         </div>
       </div>
 
