@@ -14,18 +14,6 @@ export const dynamic = "force-dynamic";
 // Debe coincidir con el motivo usado en actions.ts.
 const MOTIVO_PRODUCCION = "Producción diaria";
 
-function haceDias(dias: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - dias);
-  return d.toISOString();
-}
-
-function haceDiasFecha(dias: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - dias);
-  return d.toISOString().slice(0, 10);
-}
-
 // Etiqueta corta para el eje del gráfico ("lun 8"). fecha ya viene en hora
 // Chile (YYYY-MM-DD), así que se formatea en UTC para no volver a
 // desplazarla por la zona horaria del servidor.
@@ -40,10 +28,26 @@ function etiquetaDiaCorta(fecha: string) {
 // Página puramente informativa: indicadores y gráficos para tomar
 // decisiones sobre la operación. El ingreso manual de datos vive aparte, en
 // /admin/produccion/registrar, para no mezclar "mirar" con "cargar".
-export default async function ProduccionPage() {
+export default async function ProduccionPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ fecha?: string }>;
+}) {
   await requireRol(["administrador", "encargado_bodega"]);
   const supabase = await createClient();
   const hoy = hoyChile();
+  const params = await searchParams;
+  // Día que se está consultando: por defecto hoy, pero se puede elegir uno
+  // anterior desde el calendario. Nunca se permite elegir un día futuro (no
+  // hay datos que mostrar), así que si igual llega uno por la URL se ignora.
+  const fecha = params.fecha && params.fecha <= hoy ? params.fecha : hoy;
+
+  // Ventana de 14 días que termina en el día consultado (no necesariamente
+  // hoy). Para reconstruir el plantel histórico (más abajo) se necesita
+  // además llegar siempre hasta hoy, porque el plantel actual es el único
+  // dato "ancla" que se tiene.
+  const inicioVentana = sumarDias(fecha, -13);
+  const inicioReconstruccionPlantel = inicioVentana <= hoy ? inicioVentana : hoy;
 
   const [
     { data: movimientos },
@@ -57,8 +61,10 @@ export default async function ProduccionPage() {
       .from("movimientos_stock")
       .select("cantidad, created_at, productos(formato)")
       .eq("motivo", MOTIVO_PRODUCCION)
-      .gte("created_at", haceDias(13))
-      .order("created_at", { ascending: false }),
+      // Un día extra de margen por la diferencia de huso horario entre el
+      // timestamp (UTC) y el día calendario de Chile; se filtra al día
+      // exacto más abajo con diaChileDe().
+      .gte("created_at", `${sumarDias(inicioVentana, -1)}T00:00:00Z`),
     // Se trae un día extra (14 en vez de 13) de mermas y recolección para
     // poder calcular la columna "Diferencia día anterior" del día más
     // antiguo que se muestra en la tabla, sin que ese día extra aparezca
@@ -66,23 +72,30 @@ export default async function ProduccionPage() {
     supabase
       .from("mermas_produccion")
       .select("fecha, cantidad")
-      .gte("fecha", haceDiasFecha(14))
+      .gte("fecha", sumarDias(inicioVentana, -1))
+      .lte("fecha", fecha)
       .order("fecha", { ascending: false }),
     supabase
       .from("recoleccion_huevos")
       .select("fecha, cantidad")
-      .gte("fecha", haceDiasFecha(14))
+      .gte("fecha", sumarDias(inicioVentana, -1))
+      .lte("fecha", fecha)
       .order("fecha", { ascending: false }),
     supabase.from("plantel_gallinas").select("cantidad_actual").eq("id", "principal").single(),
+    // Rango más amplio que la ventana de 14 días: siempre llega hasta hoy,
+    // porque la reconstrucción del plantel histórico parte del plantel
+    // actual y va restando mortandad hacia atrás.
     supabase
       .from("mortandad_gallinas")
       .select("fecha, cantidad")
-      .gte("fecha", haceDiasFecha(13))
+      .gte("fecha", inicioReconstruccionPlantel)
+      .lte("fecha", hoy)
       .order("fecha", { ascending: false }),
     supabase
       .from("plantel_gallinas_historico")
       .select("fecha, cantidad")
-      .gte("fecha", haceDiasFecha(13)),
+      .gte("fecha", inicioReconstruccionPlantel)
+      .lte("fecha", hoy),
   ]);
 
   const totalPorDia = new Map<string, number>();
@@ -92,6 +105,8 @@ export default async function ProduccionPage() {
   const cajasPorDia = new Map<string, { caja120: number; caja180: number }>();
   for (const m of movimientos ?? []) {
     const dia = diaChileDe(m.created_at);
+    if (dia > fecha) continue; // fuera del día consultado (o posterior)
+
     totalPorDia.set(dia, (totalPorDia.get(dia) ?? 0) + m.cantidad);
 
     const formato = (m as unknown as { productos: { formato: Formato } | null }).productos
@@ -129,73 +144,71 @@ export default async function ProduccionPage() {
     historicoPorDia.set(h.fecha, h.cantidad);
   }
 
-  // Los últimos 14 días en orden cronológico (de más antiguo a más
-  // reciente), con 0 en los días sin producción/recolección registrada —
-  // así el gráfico muestra huecos reales (ej. domingos sin recolección) en
-  // vez de saltárselos.
+  const gallinasActivas = plantel?.cantidad_actual ?? 0;
+
+  // Para cuántas gallinas había cada día, se usa primero el snapshot real
+  // guardado en plantel_gallinas_historico. Si un día no tiene snapshot, se
+  // cae de respaldo a la reconstrucción de siempre: partiendo del plantel
+  // actual (hoy) y sumando de vuelta las mortandades desde ese día hasta hoy
+  // (recorriendo de más reciente a más antiguo). Se reconstruye siempre
+  // ancladO en hoy — no en el día consultado — porque el plantel actual es
+  // el único valor que se conoce con certeza. Ese respaldo no contempla
+  // ajustes manuales de plantel dentro del rango (compras, correcciones) que
+  // no hayan quedado con snapshot propio.
+  const gallinasPorDia = new Map<string, number>();
+  let acumuladoMortandad = 0;
+  let cursor = hoy;
+  while (cursor >= inicioReconstruccionPlantel) {
+    acumuladoMortandad += mortandadPorDia.get(cursor) ?? 0;
+    gallinasPorDia.set(cursor, historicoPorDia.get(cursor) ?? gallinasActivas + acumuladoMortandad);
+    cursor = sumarDias(cursor, -1);
+  }
+
+  // Los 14 días de la ventana consultada, en orden cronológico (de más
+  // antiguo a más reciente), con 0 en los días sin producción/recolección
+  // registrada — así el gráfico muestra huecos reales (ej. domingos sin
+  // recolección) en vez de saltárselos.
   const datosGraficoCajas: ProduccionCajasDatum[] = Array.from({ length: 14 }, (_, i) => {
-    const fecha = sumarDias(hoy, -(13 - i));
-    const valores = cajasPorDia.get(fecha) ?? { caja120: 0, caja180: 0 };
+    const diaVentana = sumarDias(fecha, -(13 - i));
+    const valores = cajasPorDia.get(diaVentana) ?? { caja120: 0, caja180: 0 };
     return {
-      fecha,
-      etiqueta: etiquetaDiaCorta(fecha),
+      fecha: diaVentana,
+      etiqueta: etiquetaDiaCorta(diaVentana),
       caja120: valores.caja120,
       caja180: valores.caja180,
       // Total del día = recolectados + rotos (mismo cálculo que la tarjeta
       // "Total del día" y la columna de la tabla de abajo).
-      totalHuevos: (huevosPorDia.get(fecha) ?? 0) + (mermaPorDia.get(fecha) ?? 0),
+      totalHuevos: (huevosPorDia.get(diaVentana) ?? 0) + (mermaPorDia.get(diaVentana) ?? 0),
     };
   });
 
   // Total del día (recolectados + rotos) para una fecha cualquiera — se usa
   // tanto en la columna "Total del día" de la tabla como para calcular la
   // diferencia contra el día anterior.
-  function totalDelDiaFn(fecha: string) {
-    return (huevosPorDia.get(fecha) ?? 0) + (mermaPorDia.get(fecha) ?? 0);
+  function totalDelDiaFn(diaConsultado: string) {
+    return (huevosPorDia.get(diaConsultado) ?? 0) + (mermaPorDia.get(diaConsultado) ?? 0);
   }
 
-  // Solo se muestran los últimos 14 días como filas. El día 15 (hace 14
-  // días) se trajo únicamente como referencia para calcular la diferencia
-  // del día más antiguo visible, así que se descarta acá.
-  const inicioVentana = sumarDias(hoy, -13);
+  // Solo se muestran los 14 días de la ventana consultada como filas.
   const diasOrdenados = [
     ...new Set([...totalPorDia.keys(), ...mermaPorDia.keys(), ...huevosPorDia.keys()]),
   ]
-    .filter((d) => d >= inicioVentana)
+    .filter((d) => d >= inicioVentana && d <= fecha)
     .sort((a, b) => b.localeCompare(a));
-  const totalHoy = totalPorDia.get(hoy) ?? 0;
-  const mermaHoy = mermaPorDia.get(hoy) ?? 0;
-  const huevosHoy = huevosPorDia.get(hoy) ?? 0;
-  // Total de huevos manejados hoy (recolectados + rotos) — la vista general
-  // del día, aparte de las cajas ya envasadas.
-  const totalHuevosDiaHoy = huevosHoy + mermaHoy;
-  const gallinasActivas = plantel?.cantidad_actual ?? 0;
 
-  // Para cuántas gallinas había CADA día de los últimos 14, se usa primero
-  // el snapshot real guardado en plantel_gallinas_historico. Si un día no
-  // tiene snapshot (por ejemplo, días de antes de empezar a usar esta
-  // tabla), se cae de respaldo a la reconstrucción de siempre: partiendo del
-  // plantel actual y sumando de vuelta las mortandades desde ese día hasta
-  // hoy (recorriendo de más reciente a más antiguo). Ese respaldo no
-  // contempla ajustes manuales de plantel dentro de la ventana (compras,
-  // correcciones) que no hayan quedado con snapshot propio.
-  const gallinasPorDia = new Map<string, number>();
-  let acumuladoMortandad = 0;
-  for (let i = datosGraficoCajas.length - 1; i >= 0; i--) {
-    const fecha = datosGraficoCajas[i].fecha;
-    acumuladoMortandad += mortandadPorDia.get(fecha) ?? 0;
-    gallinasPorDia.set(
-      fecha,
-      historicoPorDia.get(fecha) ?? gallinasActivas + acumuladoMortandad,
-    );
-  }
-  const gallinasHoyInicioDeDia = gallinasPorDia.get(hoy) ?? gallinasActivas;
+  const totalDia = totalPorDia.get(fecha) ?? 0;
+  const mermaDia = mermaPorDia.get(fecha) ?? 0;
+  const huevosDia = huevosPorDia.get(fecha) ?? 0;
+  // Total de huevos manejados el día consultado (recolectados + rotos) — la
+  // vista general del día, aparte de las cajas ya envasadas.
+  const totalHuevosDia = huevosDia + mermaDia;
+  const gallinasInicioDeDia = gallinasPorDia.get(fecha) ?? gallinasActivas;
 
-  // % de postura = huevos puestos hoy (recolectados + rotos) / gallinas que
-  // había al comenzar el día — el indicador estándar del rubro. Sin plantel
-  // cargado no se puede calcular.
+  // % de postura = huevos puestos ese día (recolectados + rotos) / gallinas
+  // que había al comenzar el día — el indicador estándar del rubro. Sin
+  // plantel cargado no se puede calcular.
   const porcentajePostura =
-    gallinasHoyInicioDeDia > 0 ? (totalHuevosDiaHoy / gallinasHoyInicioDeDia) * 100 : null;
+    gallinasInicioDeDia > 0 ? (totalHuevosDia / gallinasInicioDeDia) * 100 : null;
 
   // Mismo cálculo día a día para el gráfico de tendencia, usando el plantel
   // reconstruido de cada día en vez del valor actual fijo.
@@ -208,6 +221,8 @@ export default async function ProduccionPage() {
     };
   });
 
+  const rangoVentana = `${formatFecha(inicioVentana)} a ${formatFecha(fecha)}`;
+
   return (
     <div className="space-y-6">
       <div>
@@ -217,26 +232,57 @@ export default async function ProduccionPage() {
         </p>
       </div>
 
+      <form className="flex flex-wrap items-end gap-3">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-stone-600">
+            Ver indicadores del día
+          </label>
+          <input
+            type="date"
+            name="fecha"
+            defaultValue={fecha}
+            max={hoy}
+            className="rounded-lg border border-stone-300 px-3 py-2 text-sm"
+          />
+        </div>
+        <button
+          type="submit"
+          className="rounded-lg bg-stone-800 px-4 py-2 text-sm font-medium text-white hover:bg-stone-900"
+        >
+          Ver
+        </button>
+        {fecha !== hoy && (
+          <Link
+            href="/admin/produccion"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-amber-700 hover:underline"
+          >
+            Volver a hoy
+          </Link>
+        )}
+      </form>
+
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard
-          label={`Producción de hoy (${formatFecha(hoy)})`}
-          value={`${totalHoy}`}
-          hint="ya registradas hoy en el sistema"
+          label={
+            fecha === hoy ? `Producción de hoy (${formatFecha(hoy)})` : `Producción del ${formatFecha(fecha)}`
+          }
+          value={`${totalDia}`}
+          hint="ya registradas en el sistema"
         />
         <StatCard
-          label="Huevos recolectados hoy"
-          value={`${huevosHoy}`}
+          label="Huevos recolectados"
+          value={`${huevosDia}`}
           hint="total del día, antes de clasificar"
         />
         <StatCard
-          label="Huevos rotos hoy"
-          value={`${mermaHoy}`}
-          tone={mermaHoy > 0 ? "danger" : "default"}
+          label="Huevos rotos"
+          value={`${mermaDia}`}
+          tone={mermaDia > 0 ? "danger" : "default"}
           hint="no salen al mercado"
         />
         <StatCard
           label="Total del día"
-          value={`${totalHuevosDiaHoy}`}
+          value={`${totalHuevosDia}`}
           hint="recolectados + rotos"
         />
         <StatCard
@@ -245,22 +291,20 @@ export default async function ProduccionPage() {
           hint={
             porcentajePostura === null
               ? "carga el plantel en Mortandad"
-              : `${gallinasHoyInicioDeDia} gallinas activas`
+              : `${gallinasInicioDeDia} gallinas al iniciar el día`
           }
         />
       </div>
 
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
         <p className="mb-3 text-sm font-medium text-stone-700">
-          Producción de cajas — últimos 14 días
+          Producción de cajas — {rangoVentana}
         </p>
         <ProduccionCajasChart data={datosGraficoCajas} />
       </div>
 
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
-        <p className="mb-3 text-sm font-medium text-stone-700">
-          % de postura — últimos 14 días
-        </p>
+        <p className="mb-3 text-sm font-medium text-stone-700">% de postura — {rangoVentana}</p>
         {gallinasActivas > 0 ? (
           <PosturaChart data={datosPostura} />
         ) : (
@@ -276,7 +320,7 @@ export default async function ProduccionPage() {
 
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
         <div className="mb-3 flex items-center justify-between">
-          <p className="text-sm font-medium text-stone-700">Últimos 14 días</p>
+          <p className="text-sm font-medium text-stone-700">{rangoVentana}</p>
           <Link
             href="/admin/productos/movimientos"
             className="text-sm text-amber-700 hover:underline"
@@ -286,7 +330,7 @@ export default async function ProduccionPage() {
         </div>
         {diasOrdenados.length === 0 ? (
           <p className="py-4 text-center text-sm text-stone-400">
-            Aún no hay producción ni mermas registradas
+            No hay producción ni mermas registradas en este rango
           </p>
         ) : (
           // overflow-x-auto + min-w en la tabla: en el celular la tabla no
@@ -321,10 +365,10 @@ export default async function ProduccionPage() {
               </thead>
               <tbody className="divide-y divide-stone-100">
                 {diasOrdenados.map((dia) => {
-                  const totalDia = totalDelDiaFn(dia);
+                  const totalDelDia = totalDelDiaFn(dia);
                   const diaAnterior = sumarDias(dia, -1);
                   const totalAnterior = totalDelDiaFn(diaAnterior);
-                  const diferencia = totalDia - totalAnterior;
+                  const diferencia = totalDelDia - totalAnterior;
                   // Si el día anterior no tuvo producción (0), el % de
                   // cambio no se puede calcular (dividir por 0) — se
                   // muestra "—" en vez de un número engañoso.
@@ -338,6 +382,11 @@ export default async function ProduccionPage() {
                             Hoy
                           </span>
                         )}
+                        {dia === fecha && dia !== hoy && (
+                          <span className="ml-2 rounded-full bg-stone-200 px-2 py-0.5 text-xs font-medium text-stone-600">
+                            Seleccionado
+                          </span>
+                        )}
                       </td>
                       <td className="whitespace-nowrap py-2 px-3 text-right font-semibold text-stone-800">
                         {totalPorDia.get(dia) ?? 0}
@@ -349,7 +398,7 @@ export default async function ProduccionPage() {
                         {mermaPorDia.get(dia) ?? 0}
                       </td>
                       <td className="whitespace-nowrap py-2 px-3 text-right font-semibold text-stone-800">
-                        {totalDia}
+                        {totalDelDia}
                       </td>
                       <td
                         className={`whitespace-nowrap py-2 px-3 text-right font-semibold ${
