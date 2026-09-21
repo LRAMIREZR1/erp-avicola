@@ -339,7 +339,7 @@ export default async function ProduccionPage({
           // líneas), se puede deslizar el dedo hacia los lados para verla
           // completa.
           <div className="-mx-4 overflow-x-auto px-4">
-            <table className="w-full min-w-[920px] text-left text-sm">
+            <table className="w-full min-w-[1040px] text-left text-sm">
               <thead>
                 <tr className="text-xs uppercase text-stone-500">
                   <th className="whitespace-nowrap py-2 pr-3 font-medium">Día</th>
@@ -354,6 +354,9 @@ export default async function ProduccionPage({
                   </th>
                   <th className="whitespace-nowrap py-2 px-3 text-right font-medium">
                     Total del día
+                  </th>
+                  <th className="whitespace-nowrap py-2 px-3 text-right font-medium">
+                    % de postura
                   </th>
                   <th className="whitespace-nowrap py-2 px-3 text-right font-medium">
                     Diferencia día anterior
@@ -373,6 +376,8 @@ export default async function ProduccionPage({
                   // cambio no se puede calcular (dividir por 0) — se
                   // muestra "—" en vez de un número engañoso.
                   const diferenciaPct = totalAnterior > 0 ? (diferencia / totalAnterior) * 100 : null;
+                  const gallinasEseDia = gallinasPorDia.get(dia) ?? 0;
+                  const posturaDia = gallinasEseDia > 0 ? (totalDelDia / gallinasEseDia) * 100 : null;
                   return (
                     <tr key={dia}>
                       <td className="whitespace-nowrap py-2 pr-3 text-stone-700">
@@ -399,6 +404,9 @@ export default async function ProduccionPage({
                       </td>
                       <td className="whitespace-nowrap py-2 px-3 text-right font-semibold text-stone-800">
                         {totalDelDia}
+                      </td>
+                      <td className="whitespace-nowrap py-2 px-3 text-right font-semibold text-stone-800">
+                        {posturaDia === null ? "—" : `${posturaDia.toFixed(1)}%`}
                       </td>
                       <td
                         className={`whitespace-nowrap py-2 px-3 text-right font-semibold ${
