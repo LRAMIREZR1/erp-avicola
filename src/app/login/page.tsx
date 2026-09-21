@@ -20,13 +20,15 @@ export default function LoginPage() {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-    setLoading(false);
-
     if (error) {
+      setLoading(false);
       setError("Correo o contraseña incorrectos.");
       return;
     }
 
+    // No se vuelve a habilitar el botón aquí a propósito: debe seguir
+    // diciendo "Ingresando..." mientras el router navega a /admin, en vez de
+    // volver a "Ingresar" por un instante y confundir al que hizo clic.
     router.push("/admin");
     router.refresh();
   }
