@@ -114,8 +114,7 @@ export default async function ClientesPage({
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-3">
                       {c.latitud != null && c.longitud != null && (
-                        
-                          href={`https://www.google.com/maps?q=${c.latitud},${c.longitud}`}
+                        <a href={`https://www.google.com/maps?q=${c.latitud},${c.longitud}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-amber-700 hover:underline"
