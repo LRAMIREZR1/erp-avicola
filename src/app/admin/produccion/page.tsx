@@ -424,3 +424,36 @@ export default async function ProduccionPage({
                         className={`whitespace-nowrap py-2 px-3 text-right font-semibold ${
                           diferencia > 0
                             ? "text-green-600"
+                            : diferencia < 0
+                              ? "text-red-600"
+                              : "text-stone-400"
+                        }`}
+                      >
+                        {diferencia > 0 ? `+${diferencia}` : diferencia}
+                      </td>
+                      <td
+                        className={`whitespace-nowrap py-2 pl-3 text-right font-semibold ${
+                          diferenciaPct === null
+                            ? "text-stone-400"
+                            : diferenciaPct > 0
+                              ? "text-green-600"
+                              : diferenciaPct < 0
+                                ? "text-red-600"
+                                : "text-stone-400"
+                        }`}
+                      >
+                        {diferenciaPct === null
+                          ? "—"
+                          : `${diferenciaPct > 0 ? "+" : ""}${diferenciaPct.toFixed(1)}%`}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
