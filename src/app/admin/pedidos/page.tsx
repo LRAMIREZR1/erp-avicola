@@ -7,6 +7,7 @@ import EstadoBadge from "@/components/EstadoBadge";
 import BorrarPedidoButton from "@/components/BorrarPedidoButton";
 import RestaurarPedidoButton from "@/components/RestaurarPedidoButton";
 import GrupoPedidosColapsable from "@/components/GrupoPedidosColapsable";
+import FiltroClientePedidos from "@/components/FiltroClientePedidos";
 import { requireRol } from "@/lib/roles";
 import { NOMBRES_ESTADO, type EstadoPedido } from "@/lib/supabase/types";
 
@@ -56,10 +57,10 @@ interface Fila {
 export default async function PedidosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ estado?: string; orden?: string }>;
+  searchParams: Promise<{ estado?: string; orden?: string; cliente_id?: string }>;
 }) {
   const rol = await requireRol(["administrador", "vendedor"]);
-  const { estado, orden } = await searchParams;
+  const { estado, orden, cliente_id: clienteId } = await searchParams;
   const supabase = await createClient();
 
   let query = supabase
@@ -75,9 +76,14 @@ export default async function PedidosPage({
     // para no ensuciar la lista principal con pedidos ya descartados.
     query = query.neq("estado", "eliminado");
   }
+  if (clienteId) query = query.eq("cliente_id", clienteId);
 
-  const { data } = await query;
+  const [{ data }, { data: clientesData }] = await Promise.all([
+    query,
+    supabase.from("clientes").select("id, nombre").order("nombre"),
+  ]);
   const pedidos = (data ?? []) as unknown as Fila[];
+  const clientes = clientesData ?? [];
 
   // Vista por defecto: agrupada por estado (pendiente -> ... -> cancelado), y
   // dentro de cada grupo por fecha de entrega más próxima primero. Se puede
@@ -103,6 +109,19 @@ export default async function PedidosPage({
     { label: "Cancelados", value: "cancelado" },
     { label: "Eliminados", value: "eliminado" },
   ];
+  const clienteSeleccionado = clientes.find((c) => c.id === clienteId);
+
+  // Arma el link de cada pestaña de estado (o del toggle "orden=fecha"),
+  // preservando el filtro de cliente activo para no perderlo al cambiar de
+  // vista.
+  function hrefFiltro(estadoValue?: EstadoPedido, ordenValue?: string) {
+    const params = new URLSearchParams();
+    if (estadoValue) params.set("estado", estadoValue);
+    if (ordenValue) params.set("orden", ordenValue);
+    if (clienteId) params.set("cliente_id", clienteId);
+    const query = params.toString();
+    return query ? `/admin/pedidos?${query}` : "/admin/pedidos";
+  }
 
   function filaPedido(p: Fila) {
     return (
@@ -152,7 +171,11 @@ export default async function PedidosPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold text-stone-800">Pedidos</h1>
-          <p className="text-sm text-stone-500">Todos los pedidos registrados</p>
+          <p className="text-sm text-stone-500">
+            {clienteSeleccionado
+              ? `Pedidos de ${clienteSeleccionado.nombre}`
+              : "Todos los pedidos registrados"}
+          </p>
         </div>
         <Link
           href="/admin/pedidos/nuevo"
@@ -162,20 +185,39 @@ export default async function PedidosPage({
         </Link>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {filtros.map((f) => (
-          <Link
-            key={f.label}
-            href={f.value ? `/admin/pedidos?estado=${f.value}` : "/admin/pedidos"}
-            className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium ${
-              estado === f.value || (!estado && !f.value)
-                ? "bg-stone-800 text-white"
-                : "bg-stone-100 text-stone-600 hover:bg-stone-200"
-            }`}
-          >
-            {f.label}
-          </Link>
-        ))}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {filtros.map((f) => (
+            <Link
+              key={f.label}
+              href={hrefFiltro(f.value)}
+              className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium ${
+                estado === f.value || (!estado && !f.value)
+                  ? "bg-stone-800 text-white"
+                  : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+              }`}
+            >
+              {f.label}
+            </Link>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <FiltroClientePedidos
+            clientes={clientes}
+            clienteIdActual={clienteId}
+            estadoActual={estado}
+            ordenActual={orden}
+          />
+          {clienteId && (
+            <Link
+              href={estado ? `/admin/pedidos?estado=${estado}` : "/admin/pedidos"}
+              className="shrink-0 text-xs font-medium text-stone-500 hover:text-stone-800 hover:underline"
+            >
+              Quitar filtro
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
@@ -192,7 +234,7 @@ export default async function PedidosPage({
                   "Estado"
                 ) : (
                   <Link
-                    href={agrupado ? "/admin/pedidos?orden=fecha" : "/admin/pedidos"}
+                    href={agrupado ? hrefFiltro(undefined, "fecha") : hrefFiltro()}
                     className="inline-flex items-center gap-1 normal-case text-stone-500 hover:text-stone-800"
                     title={
                       agrupado
