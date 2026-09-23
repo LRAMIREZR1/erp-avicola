@@ -34,6 +34,11 @@ export interface Cliente {
   contacto_nombre: string | null;
   telefono: string | null;
   direccion: string | null;
+  // Punto exacto de entrega, cargado desde el mapa al crear/editar el
+  // cliente (ver MapaCliente.tsx). Puede no existir en clientes antiguos que
+  // no se han vuelto a editar desde que se agregó esta función.
+  latitud: number | null;
+  longitud: number | null;
   zona_entrega: string | null;
   notas: string | null;
   activo: boolean;
