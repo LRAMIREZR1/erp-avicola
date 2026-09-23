@@ -7,6 +7,7 @@ import ProduccionCajasChart, {
   type ProduccionCajasDatum,
 } from "@/components/ProduccionCajasChart";
 import PosturaChart, { type PosturaDatum } from "@/components/PosturaChart";
+import MermaChart, { type MermaDatum } from "@/components/MermaChart";
 import type { Formato } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
@@ -221,6 +222,12 @@ export default async function ProduccionPage({
     };
   });
 
+  const datosMerma: MermaDatum[] = datosGraficoCajas.map((d) => ({
+    fecha: d.fecha,
+    etiqueta: d.etiqueta,
+    cantidad: mermaPorDia.get(d.fecha) ?? 0,
+  }));
+
   const rangoVentana = `${formatFecha(inicioVentana)} a ${formatFecha(fecha)}`;
 
   return (
@@ -319,6 +326,11 @@ export default async function ProduccionPage({
       </div>
 
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
+        <p className="mb-3 text-sm font-medium text-stone-700">Huevos rotos — {rangoVentana}</p>
+        <MermaChart data={datosMerma} />
+      </div>
+
+      <div className="rounded-2xl border border-stone-200 bg-white p-4">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-medium text-stone-700">{rangoVentana}</p>
           <Link
@@ -412,36 +424,3 @@ export default async function ProduccionPage({
                         className={`whitespace-nowrap py-2 px-3 text-right font-semibold ${
                           diferencia > 0
                             ? "text-green-600"
-                            : diferencia < 0
-                              ? "text-red-600"
-                              : "text-stone-400"
-                        }`}
-                      >
-                        {diferencia > 0 ? `+${diferencia}` : diferencia}
-                      </td>
-                      <td
-                        className={`whitespace-nowrap py-2 pl-3 text-right font-semibold ${
-                          diferenciaPct === null
-                            ? "text-stone-400"
-                            : diferenciaPct > 0
-                              ? "text-green-600"
-                              : diferenciaPct < 0
-                                ? "text-red-600"
-                                : "text-stone-400"
-                        }`}
-                      >
-                        {diferenciaPct === null
-                          ? "—"
-                          : `${diferenciaPct > 0 ? "+" : ""}${diferenciaPct.toFixed(1)}%`}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
