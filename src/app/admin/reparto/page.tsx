@@ -267,8 +267,7 @@ export default async function RepartoPage() {
                           {enlaceMapa(g.cliente) && (
                             <>
                               {" "}
-                              
-                                href={enlaceMapa(g.cliente)!}
+                              <a href={enlaceMapa(g.cliente)!}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-amber-700 hover:underline print:hidden"
@@ -346,8 +345,7 @@ export default async function RepartoPage() {
                             {g.cliente?.zona_entrega ? ` · ${g.cliente.zona_entrega}` : ""}
                           </p>
                           {enlaceMapa(g.cliente) && (
-                            
-                              href={enlaceMapa(g.cliente)!}
+                            <a href={enlaceMapa(g.cliente)!}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-sm font-medium text-amber-700 hover:underline print:hidden"
