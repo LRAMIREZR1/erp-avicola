@@ -112,9 +112,16 @@ export default function MapaCliente({
   return (
     <div>
       <Script
-        src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&v=weekly`}
+        src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&v=weekly&loading=async`}
         strategy="afterInteractive"
-        onLoad={() => setScriptListo(true)}
+        // onReady (no onLoad): onLoad solo se dispara la primera vez que el
+        // script termina de cargar en el navegador. Si el visitante ya había
+        // pasado por otra pantalla que cargó Google Maps y vuelve a este
+        // formulario, el script ya está listo pero un "onLoad" nunca vuelve a
+        // dispararse para este nuevo montaje del componente — el botón
+        // quedaba deshabilitado para siempre. onReady sí se dispara también
+        // cuando el script ya estaba cargado de antes.
+        onReady={() => setScriptListo(true)}
       />
 
       <label className="mb-1 block text-sm font-medium text-stone-700">
