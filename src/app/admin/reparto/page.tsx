@@ -20,6 +20,8 @@ interface PedidoReparto {
     nombre: string;
     telefono: string | null;
     direccion: string | null;
+    latitud: number | null;
+    longitud: number | null;
     zona_entrega: string | null;
   } | null;
   pedido_items: {
@@ -116,6 +118,20 @@ function agruparPorCliente(lista: PedidoReparto[]): GrupoReparto[] {
   });
 }
 
+// Link de Google Maps para ir directo a la dirección del cliente. Prioriza
+// el punto exacto cargado en el mapa (más confiable); si el cliente todavía
+// no tiene uno, cae de respaldo a buscar por el texto de la dirección.
+function enlaceMapa(cliente: PedidoReparto["clientes"]): string | null {
+  if (!cliente) return null;
+  if (cliente.latitud != null && cliente.longitud != null) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${cliente.latitud},${cliente.longitud}`;
+  }
+  if (cliente.direccion) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(cliente.direccion)}`;
+  }
+  return null;
+}
+
 export default async function RepartoPage() {
   const rol = await requireRol(["administrador", "vendedor", "encargado_bodega", "repartidor"]);
   const supabase = await createClient();
@@ -123,7 +139,7 @@ export default async function RepartoPage() {
   const { data } = await supabase
     .from("pedidos")
     .select(
-      "id, cliente_id, fecha_entrega, notas, total, pagado, clientes(nombre, telefono, direccion, zona_entrega), pedido_items(cantidad, productos(id, nombre, categoria, formato))"
+      "id, cliente_id, fecha_entrega, notas, total, pagado, clientes(nombre, telefono, direccion, latitud, longitud, zona_entrega), pedido_items(cantidad, productos(id, nombre, categoria, formato))"
     )
     .eq("estado", "en_preparacion")
     .order("fecha_entrega", { ascending: true });
@@ -248,6 +264,19 @@ export default async function RepartoPage() {
                         </td>
                         <td className="px-4 py-2 text-stone-600">
                           {g.cliente?.direccion ?? "—"}
+                          {enlaceMapa(g.cliente) && (
+                            <>
+                              {" "}
+                              
+                                href={enlaceMapa(g.cliente)!}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-amber-700 hover:underline print:hidden"
+                              >
+                                (Cómo llegar)
+                              </a>
+                            </>
+                          )}
                         </td>
                         <td className="px-4 py-2 text-right">
                           {g.totalPendiente <= 0 ? (
@@ -316,6 +345,16 @@ export default async function RepartoPage() {
                             {g.cliente?.direccion ?? "Sin dirección"}
                             {g.cliente?.zona_entrega ? ` · ${g.cliente.zona_entrega}` : ""}
                           </p>
+                          {enlaceMapa(g.cliente) && (
+                            
+                              href={enlaceMapa(g.cliente)!}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm font-medium text-amber-700 hover:underline print:hidden"
+                            >
+                              Cómo llegar →
+                            </a>
+                          )}
                           {g.cliente?.telefono && (
                             <p className="text-sm text-stone-500">{g.cliente.telefono}</p>
                           )}
