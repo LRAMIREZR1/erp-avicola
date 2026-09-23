@@ -1,5 +1,6 @@
 import type { Cliente } from "@/lib/supabase/types";
 import { guardarCliente } from "@/app/admin/clientes/actions";
+import MapaCliente from "@/components/MapaCliente";
 
 export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
   return (
@@ -54,9 +55,18 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
       <div>
         <label className="mb-1 block text-sm font-medium text-stone-700">Dirección</label>
         <input
+          id="direccion-cliente"
           name="direccion"
           defaultValue={cliente?.direccion ?? ""}
           className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
+        />
+      </div>
+
+      <div>
+        <MapaCliente
+          direccionInputId="direccion-cliente"
+          latitudInicial={cliente?.latitud}
+          longitudInicial={cliente?.longitud}
         />
       </div>
 
