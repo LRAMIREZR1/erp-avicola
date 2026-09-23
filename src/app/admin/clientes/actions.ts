@@ -10,12 +10,18 @@ export async function guardarCliente(formData: FormData) {
   const supabase = await createClient();
 
   const id = formData.get("id") as string | null;
+  // El mapa (MapaCliente.tsx) deja estos dos campos vacíos cuando todavía no
+  // se ha ubicado un punto — en ese caso se guardan como null, no como 0.
+  const latitudRaw = (formData.get("latitud") as string) || "";
+  const longitudRaw = (formData.get("longitud") as string) || "";
   const payload = {
     nombre: String(formData.get("nombre") ?? "").trim(),
     tipo: formData.get("tipo") as TipoCliente,
     contacto_nombre: (formData.get("contacto_nombre") as string) || null,
     telefono: (formData.get("telefono") as string) || null,
     direccion: (formData.get("direccion") as string) || null,
+    latitud: latitudRaw ? parseFloat(latitudRaw) : null,
+    longitud: longitudRaw ? parseFloat(longitudRaw) : null,
     zona_entrega: (formData.get("zona_entrega") as string) || null,
     notas: (formData.get("notas") as string) || null,
   };
