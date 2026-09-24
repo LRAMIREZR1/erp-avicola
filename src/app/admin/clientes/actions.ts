@@ -96,11 +96,18 @@ export async function crearClienteRapido(formData: FormData) {
   } = await supabase.auth.getUser();
   const vendedorId = rol === "vendedor" ? (user?.id ?? null) : null;
 
+  // Igual que en guardarCliente: el mapa deja estos campos vacíos cuando
+  // todavía no se ha ubicado un punto — se guardan como null, no como 0.
+  const latitudRaw = (formData.get("latitud") as string) || "";
+  const longitudRaw = (formData.get("longitud") as string) || "";
+
   const payload = {
     nombre,
     tipo: (formData.get("tipo") as TipoCliente) || "minorista",
     telefono: (formData.get("telefono") as string) || null,
     direccion: (formData.get("direccion") as string) || null,
+    latitud: latitudRaw ? parseFloat(latitudRaw) : null,
+    longitud: longitudRaw ? parseFloat(longitudRaw) : null,
     zona_entrega: (formData.get("zona_entrega") as string) || null,
     vendedor_id: vendedorId,
   };
