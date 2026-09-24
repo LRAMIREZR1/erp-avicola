@@ -13,6 +13,12 @@ interface MapaClienteProps {
   direccionInputId: string;
   latitudInicial?: number | null;
   longitudInicial?: number | null;
+  // Opcional: se llama cada vez que cambia el punto (buscar, arrastrar o
+  // clic en el mapa). Los <input type="hidden"> ya alcanzan para un <form>
+  // normal (como ClienteForm), pero un formulario que arma su propio
+  // FormData a mano (como el modal de "+ Crear cliente" dentro de un
+  // pedido) necesita enterarse del cambio para incluirlo él mismo.
+  onCambiarUbicacion?: (lat: number, lng: number) => void;
 }
 
 // Mapa para ubicar el punto exacto de entrega de un cliente: busca la
@@ -24,6 +30,7 @@ export default function MapaCliente({
   direccionInputId,
   latitudInicial,
   longitudInicial,
+  onCambiarUbicacion,
 }: MapaClienteProps) {
   const contenedorRef = useRef<HTMLDivElement>(null);
   const mapaRef = useRef<google.maps.Map | null>(null);
@@ -58,7 +65,8 @@ export default function MapaCliente({
     }
     mapa.panTo(pos);
     setCoords(pos);
-  }, []);
+    onCambiarUbicacion?.(pos.lat, pos.lng);
+  }, [onCambiarUbicacion]);
 
   // Inicializa el mapa una sola vez, apenas el script de Google termina de
   // cargar (no depende de "coords" ni "colocarMarcador" para no reconstruir
