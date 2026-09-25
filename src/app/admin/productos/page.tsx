@@ -12,6 +12,7 @@ import {
 import { ajustarStock, desactivarProducto } from "@/app/admin/productos/actions";
 import { requireRol } from "@/lib/roles";
 import StockFisicoChart, { type StockFisicoDatum } from "@/components/StockFisicoChart";
+import BotonAplicarAjuste from "@/components/BotonAplicarAjuste";
 
 // Orden por tamaño del huevo, de mayor a menor — no alfabético.
 const ORDEN_CATEGORIA: Record<Categoria, number> = {
@@ -91,12 +92,7 @@ function TablaProductos({
                       <option value="Ajuste manual">Ajuste</option>
                       <option value="Merma / quiebre">Merma</option>
                     </select>
-                    <button
-                      type="submit"
-                      className="rounded-lg bg-stone-100 px-2 py-1 text-xs font-medium text-stone-700 hover:bg-stone-200"
-                    >
-                      Aplicar
-                    </button>
+                    <BotonAplicarAjuste />
                   </form>
                 </td>
               )}
