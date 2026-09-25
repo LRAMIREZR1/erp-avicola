@@ -1,0 +1,28 @@
+name: Respaldo semanal de la base de datos
+
+on:
+  schedule:
+    # Todos los lunes a las 09:00 UTC (~06:00 en Chile)
+    - cron: "0 9 * * 1"
+  workflow_dispatch: {}
+
+jobs:
+  respaldo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Instalar cliente de PostgreSQL
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Generar respaldo de la base de datos
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          fecha=$(date +'%Y-%m-%d')
+          pg_dump "$DATABASE_URL" --no-owner --no-privileges -F c -f "respaldo-erp-avicola-$fecha.dump"
+
+      - name: Subir respaldo como archivo descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: respaldo-erp-avicola-${{ github.run_id }}
+          path: respaldo-*.dump
+          retention-days: 60
