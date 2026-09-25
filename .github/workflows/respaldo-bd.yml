@@ -9,6 +9,7 @@ on:
 jobs:
   respaldo:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Instalar cliente de PostgreSQL
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
@@ -18,7 +19,7 @@ jobs:
           DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           fecha=$(date +'%Y-%m-%d')
-          pg_dump "$DATABASE_URL" --no-owner --no-privileges -F c -f "respaldo-erp-avicola-$fecha.dump"
+          pg_dump "$DATABASE_URL?connect_timeout=15" --no-owner --no-privileges -F c -f "respaldo-erp-avicola-$fecha.dump"
 
       - name: Subir respaldo como archivo descargable
         uses: actions/upload-artifact@v4
