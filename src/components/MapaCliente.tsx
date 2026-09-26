@@ -75,20 +75,36 @@ export default function MapaCliente({
     const g = window.google;
     if (!scriptListo || !g || !contenedorRef.current || mapaRef.current) return;
 
-    const centro = coords ?? CENTRO_POR_DEFECTO;
-    const mapa = new g.maps.Map(contenedorRef.current, {
-      center: centro,
-      zoom: coords ? 16 : 12,
-    });
-    mapaRef.current = mapa;
-    geocoderRef.current = new g.maps.Geocoder();
+    // Red de seguridad: si por lo que sea Google todavía no dejó listo
+    // "Map" (por ejemplo un corte de conexión a mitad de carga), se avisa
+    // con un mensaje en vez de tirar un error sin capturar que se lleve
+    // abajo toda la página.
+    try {
+      const centro = coords ?? CENTRO_POR_DEFECTO;
+      const mapa = new g.maps.Map(contenedorRef.current, {
+        center: centro,
+        zoom: coords ? 16 : 12,
+      });
+      mapaRef.current = mapa;
+      geocoderRef.current = new g.maps.Geocoder();
 
-    if (coords) colocarMarcador(coords);
+      if (coords) colocarMarcador(coords);
 
-    mapa.addListener("click", (e: google.maps.MapMouseEvent) => {
-      if (!e.latLng) return;
-      colocarMarcador({ lat: e.latLng.lat(), lng: e.latLng.lng() });
-    });
+      mapa.addListener("click", (e: google.maps.MapMouseEvent) => {
+        if (!e.latLng) return;
+        colocarMarcador({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+      });
+    } catch (err) {
+      console.error("No se pudo iniciar el mapa de Google:", err);
+      // El aviso se muestra en un microtask aparte (no llamando a setError
+      // directo acá) para no actualizar el estado de forma síncrona dentro
+      // del efecto.
+      queueMicrotask(() => {
+        setError(
+          "No se pudo cargar el mapa. Puedes seguir sin ubicar el punto, o recarga la página e intenta de nuevo."
+        );
+      });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scriptListo]);
 
@@ -120,7 +136,16 @@ export default function MapaCliente({
   return (
     <div>
       <Script
-        src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&v=weekly&loading=async`}
+        // Sin "loading=async": ese modo hace que Google cargue las clases
+        // (Map, Marker, Geocoder) de a poco, en segundo plano, y no
+        // garantiza que ya estén listas apenas el script termina de
+        // cargar — por eso a veces al abrir el mapa tiraba "Map is not a
+        // constructor" y hacía caerse la página (en el celular se veía
+        // como "This page couldn't load"). El código de acá abajo usa
+        // "new google.maps.Map(...)" directo, así que necesita el modo
+        // clásico (sin loading=async), donde todo queda disponible de
+        // una sola vez.
+        src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&v=weekly`}
         strategy="afterInteractive"
         // onReady (no onLoad): onLoad solo se dispara la primera vez que el
         // script termina de cargar en el navegador. Si el visitante ya había
