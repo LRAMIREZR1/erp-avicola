@@ -1,0 +1,32 @@
+name: Sugerencia semanal de precios
+
+on:
+  schedule:
+    # Todos los domingos a las 22:00 UTC (~19:00 en Chile)
+    - cron: "0 22 * * 0"
+  workflow_dispatch: {}
+
+jobs:
+  sugerencia:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: .github/scripts
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Calcular y guardar sugerencias
+        env:
+          SUPABASE_URL: https://rnrgdogrxszirqjkucrv.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: node sugerencia-precios.mjs
