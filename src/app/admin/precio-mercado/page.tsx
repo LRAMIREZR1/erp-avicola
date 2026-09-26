@@ -14,6 +14,7 @@ import {
   NOMBRES_UNIDAD_PRECIO,
   NOMBRES_ZONA,
   type Categoria,
+  type Formato,
   type RegionOdepa,
   type UnidadPrecioMercado,
   type ZonaPrecioMercado,
@@ -51,7 +52,7 @@ interface SugerenciaPrecio {
     referencia_fuente?: string;
     referencia_valor?: number;
   } | null;
-  productos: { nombre: string } | null;
+  productos: { nombre: string; formato: Formato } | null;
 }
 
 function haceDiasFecha(dias: number) {
@@ -96,7 +97,7 @@ export default async function PrecioMercadoPage({
     // así, si una semana faltó algún producto, no se mezcla con la anterior.
     supabase
       .from("sugerencias_precio")
-      .select("id, semana_fecha, precio_actual, precio_sugerido, detalle, productos(nombre)")
+      .select("id, semana_fecha, precio_actual, precio_sugerido, detalle, productos(nombre, formato)")
       .order("semana_fecha", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(60),
@@ -109,6 +110,10 @@ export default async function PrecioMercadoPage({
   const sugerencias = todasSugerencias.filter(
     (s) => s.semana_fecha === semanaSugerenciaMasReciente
   );
+  // Separadas en dos bloques — Bandejas (venta al detalle) y Cajas (venta
+  // grande, B2B) — en vez de una sola lista mezclada.
+  const sugerenciasBandejas = sugerencias.filter((s) => s.productos?.formato === "bandeja_30");
+  const sugerenciasCajas = sugerencias.filter((s) => s.productos?.formato !== "bandeja_30");
 
   // Último precio registrado por zona (la lista ya viene ordenada del más
   // reciente al más antiguo).
@@ -178,65 +183,8 @@ export default async function PrecioMercadoPage({
             precio (con IVA incluido). Es solo una referencia: nada se cambia solo, tú decides si
             ajustar el precio desde &quot;Productos y stock&quot;.
           </p>
-          <div className="-mx-4 overflow-x-auto px-4">
-            <table className="w-full min-w-[680px] text-left text-sm">
-              <thead>
-                <tr className="text-xs uppercase text-stone-500">
-                  <th className="whitespace-nowrap py-2 pr-3 font-medium">Producto</th>
-                  <th className="whitespace-nowrap py-2 px-3 text-right font-medium">
-                    Precio actual
-                  </th>
-                  <th className="whitespace-nowrap py-2 px-3 text-right font-medium">
-                    Referencia
-                  </th>
-                  <th className="whitespace-nowrap py-2 px-3 text-right font-medium">Sugerido</th>
-                  <th className="whitespace-nowrap py-2 pl-3 text-right font-medium">
-                    Diferencia
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-100">
-                {sugerencias.map((s) => {
-                  const diferencia = s.precio_sugerido - s.precio_actual;
-                  const referenciaValor = s.detalle?.referencia_valor;
-                  const referenciaFuente = s.detalle?.referencia_fuente;
-                  return (
-                    <tr key={s.id}>
-                      <td className="whitespace-nowrap py-2 pr-3 text-stone-700">
-                        {s.productos?.nombre ?? "—"}
-                      </td>
-                      <td className="whitespace-nowrap py-2 px-3 text-right text-stone-600">
-                        {formatCLP(s.precio_actual)}
-                      </td>
-                      <td className="whitespace-nowrap py-2 px-3 text-right text-stone-500">
-                        {referenciaValor != null ? formatCLP(referenciaValor) : "—"}
-                        {referenciaFuente && (
-                          <div className="text-[11px] leading-tight text-stone-400">
-                            {referenciaFuente}
-                          </div>
-                        )}
-                      </td>
-                      <td className="whitespace-nowrap py-2 px-3 text-right font-semibold text-stone-800">
-                        {formatCLP(s.precio_sugerido)}
-                      </td>
-                      <td
-                        className={`whitespace-nowrap py-2 pl-3 text-right font-medium ${
-                          diferencia > 0
-                            ? "text-green-700"
-                            : diferencia < 0
-                              ? "text-red-600"
-                              : "text-stone-400"
-                        }`}
-                      >
-                        {diferencia > 0 ? "+" : ""}
-                        {formatCLP(diferencia)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <TablaSugerencias titulo="Bandejas (30 unidades)" lista={sugerenciasBandejas} />
+          <TablaSugerencias titulo="Cajas" lista={sugerenciasCajas} />
         </div>
       )}
 
@@ -538,6 +486,76 @@ export default async function PrecioMercadoPage({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// Tabla de sugerencias reutilizable — se usa dos veces (Bandejas y Cajas)
+// para que el reporte quede separado por tipo de venta en vez de una sola
+// lista mezclada.
+function TablaSugerencias({ titulo, lista }: { titulo: string; lista: SugerenciaPrecio[] }) {
+  if (lista.length === 0) return null;
+
+  return (
+    <div className="mt-4 first:mt-0">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
+        {titulo}
+      </p>
+      <div className="-mx-4 overflow-x-auto px-4">
+        <table className="w-full min-w-[680px] text-left text-sm">
+          <thead>
+            <tr className="text-xs uppercase text-stone-500">
+              <th className="whitespace-nowrap py-2 pr-3 font-medium">Producto</th>
+              <th className="whitespace-nowrap py-2 px-3 text-right font-medium">
+                Precio actual
+              </th>
+              <th className="whitespace-nowrap py-2 px-3 text-right font-medium">Referencia</th>
+              <th className="whitespace-nowrap py-2 px-3 text-right font-medium">Sugerido</th>
+              <th className="whitespace-nowrap py-2 pl-3 text-right font-medium">Diferencia</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-stone-100">
+            {lista.map((s) => {
+              const diferencia = s.precio_sugerido - s.precio_actual;
+              const referenciaValor = s.detalle?.referencia_valor;
+              const referenciaFuente = s.detalle?.referencia_fuente;
+              return (
+                <tr key={s.id}>
+                  <td className="whitespace-nowrap py-2 pr-3 text-stone-700">
+                    {s.productos?.nombre ?? "—"}
+                  </td>
+                  <td className="whitespace-nowrap py-2 px-3 text-right text-stone-600">
+                    {formatCLP(s.precio_actual)}
+                  </td>
+                  <td className="whitespace-nowrap py-2 px-3 text-right text-stone-500">
+                    {referenciaValor != null ? formatCLP(referenciaValor) : "—"}
+                    {referenciaFuente && (
+                      <div className="text-[11px] leading-tight text-stone-400">
+                        {referenciaFuente}
+                      </div>
+                    )}
+                  </td>
+                  <td className="whitespace-nowrap py-2 px-3 text-right font-semibold text-stone-800">
+                    {formatCLP(s.precio_sugerido)}
+                  </td>
+                  <td
+                    className={`whitespace-nowrap py-2 pl-3 text-right font-medium ${
+                      diferencia > 0
+                        ? "text-green-700"
+                        : diferencia < 0
+                          ? "text-red-600"
+                          : "text-stone-400"
+                    }`}
+                  >
+                    {diferencia > 0 ? "+" : ""}
+                    {formatCLP(diferencia)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
