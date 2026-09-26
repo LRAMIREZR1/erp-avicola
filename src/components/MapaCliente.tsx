@@ -21,6 +21,23 @@ interface MapaClienteProps {
   onCambiarUbicacion?: (lat: number, lng: number) => void;
 }
 
+// Intenta sacar un par de coordenadas (latitud, longitud) de un texto
+// pegado a mano: un link de Google Maps ("...@-35.123,-71.456,17z",
+// ".../?q=-35.123,-71.456") o las coordenadas sueltas tal como quedan al
+// copiar una ubicación compartida por WhatsApp ("-35.123, -71.456"). No
+// funciona con links cortos (maps.app.goo.gl/xxxx), porque esos no traen
+// las coordenadas a la vista en el texto — hay que abrirlos primero en el
+// navegador y copiar el link completo (o las coordenadas) desde ahí.
+function extraerCoordenadas(texto: string): google.maps.LatLngLiteral | null {
+  const match = texto.match(/(-?\d{1,3}(?:\.\d+))\s*,\s*(-?\d{1,3}(?:\.\d+))/);
+  if (!match) return null;
+  const lat = Number(match[1]);
+  const lng = Number(match[2]);
+  if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat, lng };
+}
+
 // Mapa para ubicar el punto exacto de entrega de un cliente: busca la
 // dirección escrita arriba con el Geocoder de Google, y deja mover el pin a
 // mano (arrastrándolo o haciendo clic en otro punto del mapa) para ajustarlo.
@@ -39,6 +56,8 @@ export default function MapaCliente({
 
   const [scriptListo, setScriptListo] = useState(false);
   const [buscando, setBuscando] = useState(false);
+  const [obteniendoUbicacion, setObteniendoUbicacion] = useState(false);
+  const [textoPegado, setTextoPegado] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [coords, setCoords] = useState<google.maps.LatLngLiteral | null>(
     latitudInicial != null && longitudInicial != null
@@ -133,6 +152,52 @@ export default function MapaCliente({
     });
   }
 
+  // Usa el GPS del celular/computador para ubicar el punto — pensado para
+  // cuando ya estás en terreno haciendo el reparto y quieres dejar guardada
+  // tu posición actual como el punto de entrega del cliente (útil sobre
+  // todo para clientes en el campo, sin una dirección formal).
+  function usarMiUbicacion() {
+    if (!navigator.geolocation) {
+      setError("Este navegador no permite obtener la ubicación actual.");
+      return;
+    }
+    setObteniendoUbicacion(true);
+    setError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setObteniendoUbicacion(false);
+        colocarMarcador({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        mapaRef.current?.setZoom(17);
+      },
+      (err) => {
+        setObteniendoUbicacion(false);
+        setError(
+          err.code === err.PERMISSION_DENIED
+            ? "No diste permiso para usar tu ubicación. Revisa los permisos de ubicación del navegador para este sitio e intenta de nuevo."
+            : "No se pudo obtener tu ubicación. Intenta de nuevo, o ubica el punto a mano haciendo clic en el mapa."
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  // Para cuando el cliente manda su ubicación por WhatsApp: se comparte esa
+  // ubicación a este número/chat, se copia el texto o el link que queda, y
+  // se pega acá.
+  function usarUbicacionPegada() {
+    const punto = extraerCoordenadas(textoPegado);
+    if (!punto) {
+      setError(
+        "No encontré coordenadas en eso. Si es un link corto (maps.app.goo.gl), ábrelo primero en el navegador y copia el link completo o las coordenadas."
+      );
+      return;
+    }
+    setError(null);
+    colocarMarcador(punto);
+    mapaRef.current?.setZoom(17);
+    setTextoPegado("");
+  }
+
   return (
     <div>
       <Script
@@ -161,18 +226,48 @@ export default function MapaCliente({
         Ubicación en el mapa (para el reparto)
       </label>
       <p className="mb-2 text-xs text-stone-500">
-        Busca la dirección escrita arriba, o haz clic en el mapa / arrastra el
-        pin para ajustar el punto exacto de entrega.
+        Busca la dirección escrita arriba, usa tu ubicación actual, pega la
+        que te haya mandado el cliente por WhatsApp, o haz clic en el mapa /
+        arrastra el pin — lo que sea más fácil para ajustar el punto exacto
+        de entrega.
       </p>
 
-      <button
-        type="button"
-        onClick={buscarDireccion}
-        disabled={buscando || !scriptListo}
-        className="mb-2 rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-60"
-      >
-        {buscando ? "Buscando…" : "Buscar dirección en el mapa"}
-      </button>
+      <div className="mb-2 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={buscarDireccion}
+          disabled={buscando || !scriptListo}
+          className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-60"
+        >
+          {buscando ? "Buscando…" : "Buscar dirección en el mapa"}
+        </button>
+        <button
+          type="button"
+          onClick={usarMiUbicacion}
+          disabled={obteniendoUbicacion || !scriptListo}
+          className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-60"
+        >
+          {obteniendoUbicacion ? "Obteniendo tu ubicación…" : "📍 Usar mi ubicación actual"}
+        </button>
+      </div>
+
+      <div className="mb-2 flex flex-wrap gap-2">
+        <input
+          type="text"
+          value={textoPegado}
+          onChange={(e) => setTextoPegado(e.target.value)}
+          placeholder="Pega acá el link o las coordenadas que te mandó el cliente por WhatsApp"
+          className="min-w-[240px] flex-1 rounded-lg border border-stone-300 px-3 py-1.5 text-sm focus:border-amber-600 focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={usarUbicacionPegada}
+          disabled={!textoPegado.trim() || !scriptListo}
+          className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-60"
+        >
+          Usar esta ubicación
+        </button>
+      </div>
 
       {error && <p className="mb-2 text-sm text-red-600">{error}</p>}
 
