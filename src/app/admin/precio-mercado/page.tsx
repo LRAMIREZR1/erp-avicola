@@ -48,7 +48,8 @@ interface SugerenciaPrecio {
   precio_sugerido: number;
   detalle: {
     metodo?: string;
-    precio_yemita_con_iva_equivalente?: number;
+    referencia_fuente?: string;
+    referencia_valor?: number;
   } | null;
   productos: { nombre: string } | null;
 }
@@ -169,12 +170,13 @@ export default async function PrecioMercadoPage({
         <div className="rounded-2xl border border-stone-200 bg-white p-4">
           <h2 className="text-sm font-semibold text-stone-700">Sugerencia semanal de precios</h2>
           <p className="mb-3 text-xs text-stone-400">
-            Calculada automáticamente cada semana comparando con Yemita (mayorista) y
-            Cintazul/Jumbo (retail) — semana del {formatFecha(semanaSugerenciaMasReciente!)}.
-            &quot;Yemita c/IVA&quot; es lo que costaría esa misma cantidad de huevos comprada a
-            Yemita agregando el 19% de IVA, para comparar en igualdad de condiciones con nuestro
-            precio (que siempre incluye IVA). Es solo una referencia: nada se cambia solo, tú
-            decides si ajustar el precio desde &quot;Productos y stock&quot;.
+            Calculada automáticamente cada semana — semana del{" "}
+            {formatFecha(semanaSugerenciaMasReciente!)}. &quot;Referencia&quot; es el precio de la
+            competencia que efectivamente se usó para calcular el sugerido de cada producto —
+            Huevos Santa Marta (mismo formato Caja 180, huevo color), Yemita (mayorista, con 19%
+            de IVA agregado) o Cintazul/Jumbo (retail estimado) — ya en la misma base que nuestro
+            precio (con IVA incluido). Es solo una referencia: nada se cambia solo, tú decides si
+            ajustar el precio desde &quot;Productos y stock&quot;.
           </p>
           <div className="-mx-4 overflow-x-auto px-4">
             <table className="w-full min-w-[680px] text-left text-sm">
@@ -185,7 +187,7 @@ export default async function PrecioMercadoPage({
                     Precio actual
                   </th>
                   <th className="whitespace-nowrap py-2 px-3 text-right font-medium">
-                    Yemita c/IVA
+                    Referencia
                   </th>
                   <th className="whitespace-nowrap py-2 px-3 text-right font-medium">Sugerido</th>
                   <th className="whitespace-nowrap py-2 pl-3 text-right font-medium">
@@ -196,7 +198,8 @@ export default async function PrecioMercadoPage({
               <tbody className="divide-y divide-stone-100">
                 {sugerencias.map((s) => {
                   const diferencia = s.precio_sugerido - s.precio_actual;
-                  const yemitaConIva = s.detalle?.precio_yemita_con_iva_equivalente;
+                  const referenciaValor = s.detalle?.referencia_valor;
+                  const referenciaFuente = s.detalle?.referencia_fuente;
                   return (
                     <tr key={s.id}>
                       <td className="whitespace-nowrap py-2 pr-3 text-stone-700">
@@ -206,7 +209,12 @@ export default async function PrecioMercadoPage({
                         {formatCLP(s.precio_actual)}
                       </td>
                       <td className="whitespace-nowrap py-2 px-3 text-right text-stone-500">
-                        {yemitaConIva != null ? formatCLP(yemitaConIva) : "—"}
+                        {referenciaValor != null ? formatCLP(referenciaValor) : "—"}
+                        {referenciaFuente && (
+                          <div className="text-[11px] leading-tight text-stone-400">
+                            {referenciaFuente}
+                          </div>
+                        )}
                       </td>
                       <td className="whitespace-nowrap py-2 px-3 text-right font-semibold text-stone-800">
                         {formatCLP(s.precio_sugerido)}
