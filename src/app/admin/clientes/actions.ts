@@ -118,7 +118,17 @@ export async function crearClienteRapido(formData: FormData) {
     throw new Error("No se pudo crear el cliente: " + error?.message);
   }
 
+  // Ojo: a propósito NO se revalida la página de pedidos (ni "nueva" ni
+  // "editar") acá. Esta acción se llama desde dentro del modal de un
+  // pedido que sigue abierto en pantalla — si se revalida esa misma ruta,
+  // Next.js dispara automáticamente un refresh de toda la página apenas
+  // termina la acción, justo mientras el modal (con el mapa de Google
+  // adentro) se está cerrando. Esa combinación fue la causa de que en el
+  // celular la página se cayera ("This page couldn't load") al crear un
+  // cliente nuevo desde un pedido. El formulario ya agrega el cliente
+  // nuevo a su lista en memoria (ver PedidoForm), así que no hace falta
+  // refrescar la página para verlo. /admin/clientes sí se revalida, para
+  // que aparezca actualizado la próxima vez que se visite esa pantalla.
   revalidatePath("/admin/clientes");
-  revalidatePath("/admin/pedidos/nuevo");
   return data;
 }
