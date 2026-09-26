@@ -84,17 +84,23 @@ async function obtenerPreciosYemita() {
 // --- Precios de Huevos Santa Marta, huevo Color, Caja de 6 Bandejas (30 uni)
 // = 180 unidades — mismo formato y color que nuestros productos Caja 180.
 // La página trae varias presentaciones por categoría (estuches, packs de 60,
-// etc.) a precios muy distintos; el patrón busca específicamente la de
-// "Caja de 6 Bandejas ... 180 unidades" para no mezclarlas. Si una categoría
-// no aparece en esta presentación esa semana (ej. Super Extra), simplemente
-// no se agrega al resultado y calcularSugerencias() usa el respaldo de
-// Yemita para esa categoría en particular.
-const NOMBRE_SANTA_MARTA = {
-  segunda: "SEGUNDA",
-  primera: "PRIMERA",
-  extra: "EXTRA",
-  tercera: "TERCERA",
-  super_extra: "SUPER EXTRA",
+// packs de 150, etc.) a precios muy distintos, y no siempre en el mismo
+// orden. IMPORTANTE: no se busca "categoría" y luego "precio" por separado
+// — eso causó un bug real (el precio de Primera se emparejó por error con
+// el de Tercera, por estar más cerca en el texto esa semana). En su lugar,
+// cada coincidencia captura categoría + presentación + precio juntos en un
+// solo match, y "(?:(?!HUEVOS)[\s\S])*?" impide que la búsqueda se escape
+// hacia la tarjeta del producto siguiente (corta apenas aparece la palabra
+// HUEVOS de nuevo) — así el precio queda siempre pegado a su propia
+// categoría. Si una categoría no tiene esta presentación esa semana (ej.
+// Super Extra), simplemente no aparece en el resultado y
+// calcularSugerencias() usa el respaldo de Yemita para esa categoría.
+const NOMBRE_A_CATEGORIA_SANTA_MARTA = {
+  "SUPER EXTRA": "super_extra",
+  EXTRA: "extra",
+  PRIMERA: "primera",
+  SEGUNDA: "segunda",
+  TERCERA: "tercera",
 };
 
 async function obtenerPreciosSantaMarta() {
@@ -106,14 +112,15 @@ async function obtenerPreciosSantaMarta() {
   const html = await res.text();
   const texto = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
+  const regexEntrada =
+    /HUEVOS ([A-ZÁÉÍÓÚÑ ]+?) COLOR(?:(?!HUEVOS)[\s\S])*?CAJA DE 6 BANDEJAS(?:(?!HUEVOS)[\s\S])*?180 UNIDADES(?:(?!HUEVOS)[\s\S])*?\$\s?([\d.]+)/gi;
+
   const precios = {};
-  for (const [categoria, nombre] of Object.entries(NOMBRE_SANTA_MARTA)) {
-    const regex = new RegExp(
-      `HUEVOS ${nombre} COLOR[\\s\\S]{0,200}?CAJA DE 6 BANDEJAS[\\s\\S]{0,60}?180 UNIDADES[\\s\\S]{0,50}?\\$\\s?([\\d.]+)`,
-      "i"
-    );
-    const match = texto.match(regex);
-    if (match) precios[categoria] = Number(match[1].replace(/\./g, ""));
+  for (const match of texto.matchAll(regexEntrada)) {
+    const categoria = NOMBRE_A_CATEGORIA_SANTA_MARTA[match[1].trim().toUpperCase()];
+    if (categoria && !(categoria in precios)) {
+      precios[categoria] = Number(match[2].replace(/\./g, ""));
+    }
   }
   return precios;
 }
@@ -192,6 +199,14 @@ function calcularSugerencias(productos, preciosYemita, precioRetailJumbo, precio
 
     let precioSugerido;
     let metodo;
+    // Nombre y valor de la referencia que realmente se usa como base del
+    // cálculo para este producto — para mostrarla tal cual en el correo y en
+    // pantalla, en vez de mostrar siempre "Yemita" aunque no sea la fuente
+    // real (ese era el problema: Bandeja 30 se calcula desde Cintazul/Jumbo,
+    // no desde Yemita, pero la columna anterior mostraba Yemita igual).
+    let referenciaFuente;
+    let referenciaValor;
+
     // Precio de Santa Marta para esta categoría exacta (Caja 180, huevo
     // Color) — ya incluye IVA, no necesita ningún ajuste extra.
     const precioSantaMarta = preciosSantaMarta[p.categoria] ?? null;
@@ -200,18 +215,26 @@ function calcularSugerencias(productos, preciosYemita, precioRetailJumbo, precio
       const retailEstimado = precioHuevo * 30 * ratioRetail * factorTercera;
       precioSugerido = retailEstimado * 0.88; // ~12% bajo el retail estimado
       metodo = "12% bajo el precio retail estimado (calibrado con Cintazul en Jumbo, ya incluye IVA)";
+      referenciaFuente = "Cintazul/Jumbo (retail estimado)";
+      referenciaValor = Math.round(retailEstimado);
     } else if (p.formato === "caja_120") {
       precioSugerido = precioHuevoConIva * 120 * factorTercera * 1.05;
       metodo = "5% sobre el precio mayorista de Yemita + IVA (venta media)";
+      referenciaFuente = "Yemita + IVA";
+      referenciaValor = Math.round(precioHuevoConIva * 120 * factorTercera);
     } else if (precioSantaMarta) {
       // Mismo formato exacto (Caja 180, huevo Color) y precio ya con IVA —
       // comparación directa, sin estimaciones.
       precioSugerido = precioSantaMarta * 0.97; // 3% bajo Huevos Santa Marta
       metodo = "3% bajo Huevos Santa Marta (misma Caja 180, huevo color, precio ya con IVA)";
+      referenciaFuente = "Huevos Santa Marta";
+      referenciaValor = precioSantaMarta;
     } else {
       precioSugerido = precioHuevoConIva * 180 * factorTercera * 0.97;
       metodo =
         "3% bajo el precio mayorista de Yemita + IVA (sin dato de Huevos Santa Marta esta semana para esta categoría)";
+      referenciaFuente = "Yemita + IVA";
+      referenciaValor = Math.round(precioYemitaConIvaEquivalente);
     }
 
     precioSugerido = Math.round(precioSugerido / 50) * 50;
@@ -222,6 +245,8 @@ function calcularSugerencias(productos, preciosYemita, precioRetailJumbo, precio
       precio_sugerido: precioSugerido,
       detalle: {
         metodo,
+        referencia_fuente: referenciaFuente,
+        referencia_valor: referenciaValor,
         fuente_caja_180: precioSantaMarta ? "santa_marta" : "yemita",
         precio_santa_marta: precioSantaMarta,
         precio_yemita_por_huevo: precioHuevo,
@@ -279,13 +304,14 @@ async function enviarCorreo(productos, sugerencias) {
       const diff = s.precio_sugerido - s.precio_actual;
       const color = diff > 0 ? "#15803d" : diff < 0 ? "#b91c1c" : "#78716c";
       const signo = diff > 0 ? "+" : "";
-      const yemitaConIva = s.detalle?.precio_yemita_con_iva_equivalente;
+      const referenciaValor = s.detalle?.referencia_valor;
+      const referenciaFuente = s.detalle?.referencia_fuente;
       return `<tr>
         <td style="padding:4px 8px;border-bottom:1px solid #e7e5e4">${p.nombre}</td>
         <td style="padding:4px 8px;border-bottom:1px solid #e7e5e4;text-align:right">${formatCLP(p.precio)}</td>
         <td style="padding:4px 8px;border-bottom:1px solid #e7e5e4;text-align:right;color:#78716c">${
-          yemitaConIva != null ? formatCLP(yemitaConIva) : "—"
-        }</td>
+          referenciaValor != null ? formatCLP(referenciaValor) : "—"
+        }<br/><span style="font-size:11px;color:#a8a29e">${referenciaFuente ?? ""}</span></td>
         <td style="padding:4px 8px;border-bottom:1px solid #e7e5e4;text-align:right;font-weight:bold">${formatCLP(s.precio_sugerido)}</td>
         <td style="padding:4px 8px;border-bottom:1px solid #e7e5e4;text-align:right;color:${color}">${signo}${formatCLP(diff)}</td>
       </tr>`;
@@ -295,18 +321,18 @@ async function enviarCorreo(productos, sugerencias) {
   const html = `
     <h2 style="font-family:sans-serif;color:#292524">Sugerencia semanal de precios — Avícola Doña Idelia</h2>
     <p style="font-family:sans-serif;color:#57534e;font-size:14px">
-      Comparación contra Yemita (mayorista) y Cintazul/Jumbo (retail). "Yemita c/IVA" es lo que
-      costaría esa misma cantidad de huevos comprada a Yemita, agregando el 19% de IVA para que
-      sea comparable con nuestro precio (que siempre incluye IVA). Esto es solo una sugerencia —
-      nada se cambia solo en el sistema, tú decides si ajustar cada precio desde "Productos y
-      stock".
+      "Referencia" es el precio de la competencia que efectivamente se usó ese producto esa
+      semana — Huevos Santa Marta (mismo formato Caja 180, huevo color), Yemita (mayorista, con
+      19% de IVA agregado) o Cintazul/Jumbo (retail estimado) — ya en la misma base que nuestro
+      precio (con IVA incluido). Esto es solo una sugerencia — nada se cambia solo en el
+      sistema, tú decides si ajustar cada precio desde "Productos y stock".
     </p>
     <table style="border-collapse:collapse;width:100%;max-width:680px;font-family:sans-serif;font-size:13px">
       <thead>
         <tr style="background:#f5f5f4;text-align:left">
           <th style="padding:4px 8px">Producto</th>
           <th style="padding:4px 8px;text-align:right">Precio actual</th>
-          <th style="padding:4px 8px;text-align:right">Yemita c/IVA</th>
+          <th style="padding:4px 8px;text-align:right">Referencia</th>
           <th style="padding:4px 8px;text-align:right">Sugerido</th>
           <th style="padding:4px 8px;text-align:right">Diferencia</th>
         </tr>
