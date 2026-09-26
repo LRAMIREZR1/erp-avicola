@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { startTransition, useActionState, useMemo, useState } from "react";
 import { crearPedido, editarPedido, type PedidoFormState } from "@/app/admin/pedidos/actions";
 import { crearClienteRapido } from "@/app/admin/clientes/actions";
 import BotonEnviarPedido from "@/components/BotonEnviarPedido";
@@ -77,33 +77,42 @@ export default function PedidoForm({
     setNuevaLongitud(null);
   }
 
-  async function handleCrearCliente() {
+  function handleCrearCliente() {
     if (!nuevoNombre.trim()) {
       setErrorCliente("El nombre es obligatorio");
       return;
     }
     setCreandoCliente(true);
     setErrorCliente("");
-    try {
-      const formData = new FormData();
-      formData.set("nombre", nuevoNombre.trim());
-      formData.set("tipo", nuevoTipo);
-      formData.set("telefono", nuevoTelefono);
-      formData.set("direccion", nuevoDireccion);
-      formData.set("zona_entrega", nuevaZona);
-      if (nuevaLatitud != null) formData.set("latitud", String(nuevaLatitud));
-      if (nuevaLongitud != null) formData.set("longitud", String(nuevaLongitud));
-      const cliente = (await crearClienteRapido(formData)) as Cliente;
-      setListaClientes((prev) =>
-        [...prev, cliente].sort((a, b) => a.nombre.localeCompare(b.nombre))
-      );
-      setClienteId(cliente.id);
-      cerrarModalCliente();
-    } catch (err) {
-      setErrorCliente(err instanceof Error ? err.message : "No se pudo crear el cliente");
-    } finally {
-      setCreandoCliente(false);
-    }
+    // La Server Action se llama acá directamente (no desde un <form
+    // action=...>), así que va envuelta en startTransition — es la forma
+    // que recomienda React para esto. Sin esto, el resultado de la acción
+    // podía llegar a pisar el cierre del modal (con el mapa de Google
+    // adentro) en un momento raro, y eso — sumado a la revalidación que
+    // había antes — era lo que hacía que la página se cayera en el
+    // celular al crear un cliente nuevo desde un pedido.
+    startTransition(async () => {
+      try {
+        const formData = new FormData();
+        formData.set("nombre", nuevoNombre.trim());
+        formData.set("tipo", nuevoTipo);
+        formData.set("telefono", nuevoTelefono);
+        formData.set("direccion", nuevoDireccion);
+        formData.set("zona_entrega", nuevaZona);
+        if (nuevaLatitud != null) formData.set("latitud", String(nuevaLatitud));
+        if (nuevaLongitud != null) formData.set("longitud", String(nuevaLongitud));
+        const cliente = (await crearClienteRapido(formData)) as Cliente;
+        setListaClientes((prev) =>
+          [...prev, cliente].sort((a, b) => a.nombre.localeCompare(b.nombre))
+        );
+        setClienteId(cliente.id);
+        cerrarModalCliente();
+      } catch (err) {
+        setErrorCliente(err instanceof Error ? err.message : "No se pudo crear el cliente");
+      } finally {
+        setCreandoCliente(false);
+      }
+    });
   }
 
   const total = useMemo(
