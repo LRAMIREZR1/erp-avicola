@@ -92,7 +92,7 @@ const SECCIONES: NavSeccion[] = [
       {
         href: "/admin/precio-mayorista",
         label: "Precio mayorista",
-        roles: ["administrador"],
+        roles: ["administrador", "vendedor"],
       },
     ],
   },
