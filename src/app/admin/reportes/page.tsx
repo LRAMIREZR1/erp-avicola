@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatCLP } from "@/lib/format";
 import StatCard from "@/components/StatCard";
 import DetalleVendedorCard from "@/components/DetalleVendedorCard";
+import RankingClientes from "@/components/RankingClientes";
 import { requireRol } from "@/lib/roles";
 import { NOMBRES_CATEGORIA, NOMBRES_FORMATO, type Categoria, type Formato } from "@/lib/supabase/types";
 
@@ -398,25 +399,7 @@ export default async function ReportesPage({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="rounded-2xl border border-stone-200 bg-white p-4">
           <p className="mb-3 text-sm font-medium text-stone-700">Ranking de clientes</p>
-          <div className="divide-y divide-stone-100">
-            {rankingClientes.map((c, i) => (
-              <div key={c.nombre + i} className="flex items-center justify-between py-2 text-sm">
-                <span className="flex items-center gap-2 text-stone-600">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-stone-100 text-xs font-semibold text-stone-500">
-                    {i + 1}
-                  </span>
-                  {c.nombre}
-                  <span className="text-xs text-stone-400">
-                    ({c.pedidos} pedido{c.pedidos === 1 ? "" : "s"})
-                  </span>
-                </span>
-                <span className="font-medium text-stone-800">{formatCLP(c.total)}</span>
-              </div>
-            ))}
-            {rankingClientes.length === 0 && (
-              <p className="py-4 text-center text-sm text-stone-400">Sin datos</p>
-            )}
-          </div>
+          <RankingClientes clientes={rankingClientes} totalPeriodo={totalPeriodo} />
         </div>
 
         <div className="rounded-2xl border border-stone-200 bg-white p-4">
