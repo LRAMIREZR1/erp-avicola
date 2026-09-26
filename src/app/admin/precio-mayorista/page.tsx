@@ -41,7 +41,11 @@ interface ProductoCaja {
 }
 
 export default async function PrecioMayoristaPage() {
-  await requireRol(["administrador"]);
+  // A diferencia de "Productos y stock" (donde se edita el precio de
+  // lista), esta pantalla es solo de lectura — por eso también se le
+  // puede dar acceso al rol vendedor, para que la use al cotizar sin
+  // tener que pasar por el administrador.
+  await requireRol(["administrador", "vendedor"]);
   const supabase = await createClient();
 
   const { data } = await supabase
