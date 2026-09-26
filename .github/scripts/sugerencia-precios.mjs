@@ -125,6 +125,34 @@ async function obtenerPreciosSantaMarta() {
   return precios;
 }
 
+// --- Precios de Agricovial, línea Gallina Libre Color, Caja de 180 unidades
+// — solo tienen Primera y Extra en esta línea (no Segunda ni Tercera ni
+// Super Extra). Confirmado en el checkout de su sitio (columna "Total IVA
+// incl.") que el precio publicado ya incluye IVA, igual que Santa Marta. Se
+// scrapea la página de categoría (no la ficha de cada producto individual —
+// esa mostró un precio distinto e inconsistente para Extra la primera vez
+// que se revisó a mano).
+async function obtenerPreciosAgricovial() {
+  const res = await fetch("https://www.agricovial.cl/categoria-producto/gallina-libre/", {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; DonaIdeliaBot/1.0)" },
+  });
+  if (!res.ok) throw new Error(`Agricovial no respondió: ${res.status}`);
+  const html = await res.text();
+  const texto = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+
+  const patrones = {
+    primera: /Huevo Color Primera Gallina Libre[^$]{0,150}\$\s?([\d.]+)/i,
+    extra: /Huevo Color Extra Gallina Libre[^$]{0,150}\$\s?([\d.]+)/i,
+  };
+
+  const precios = {};
+  for (const [categoria, regex] of Object.entries(patrones)) {
+    const match = texto.match(regex);
+    if (match) precios[categoria] = Number(match[1].replace(/\./g, ""));
+  }
+  return precios;
+}
+
 // --- Precio retail de referencia: Cintazul Grande, bandeja de 30, en Jumbo.cl ---
 // Se usa solo para calibrar la relación entre precio mayorista y precio al
 // público — si esta lectura falla (la página cambió, bloqueo, etc.) el
@@ -175,7 +203,13 @@ function unidadesPorFormato(formato) {
   return 180; // caja_180
 }
 
-function calcularSugerencias(productos, preciosYemita, precioRetailJumbo, preciosSantaMarta = {}) {
+function calcularSugerencias(
+  productos,
+  preciosYemita,
+  precioRetailJumbo,
+  preciosSantaMarta = {},
+  preciosAgricovial = {}
+) {
   const precioMayoristaGrande30 = (preciosYemita.primera ?? 0) * 30;
   const ratioRetail =
     precioRetailJumbo && precioMayoristaGrande30
@@ -207,9 +241,12 @@ function calcularSugerencias(productos, preciosYemita, precioRetailJumbo, precio
     let referenciaFuente;
     let referenciaValor;
 
-    // Precio de Santa Marta para esta categoría exacta (Caja 180, huevo
-    // Color) — ya incluye IVA, no necesita ningún ajuste extra.
+    // Precios de la competencia en esta categoría exacta (Caja 180, huevo
+    // Color) — ambos ya incluyen IVA, no necesitan ningún ajuste extra.
+    // Agricovial solo tiene Primera y Extra (no Segunda/Tercera/Super
+    // Extra), así que para esas categorías esto queda vacío.
     const precioSantaMarta = preciosSantaMarta[p.categoria] ?? null;
+    const precioAgricovial = preciosAgricovial[p.categoria] ?? null;
 
     if (p.formato === "bandeja_30") {
       const retailEstimado = precioHuevo * 30 * ratioRetail * factorTercera;
@@ -222,17 +259,24 @@ function calcularSugerencias(productos, preciosYemita, precioRetailJumbo, precio
       metodo = "5% sobre el precio mayorista de Yemita + IVA (venta media)";
       referenciaFuente = "Yemita + IVA";
       referenciaValor = Math.round(precioHuevoConIva * 120 * factorTercera);
-    } else if (precioSantaMarta) {
-      // Mismo formato exacto (Caja 180, huevo Color) y precio ya con IVA —
-      // comparación directa, sin estimaciones.
-      precioSugerido = precioSantaMarta * 0.97; // 3% bajo Huevos Santa Marta
-      metodo = "3% bajo Huevos Santa Marta (misma Caja 180, huevo color, precio ya con IVA)";
-      referenciaFuente = "Huevos Santa Marta";
-      referenciaValor = precioSantaMarta;
+    } else if (precioSantaMarta || precioAgricovial) {
+      // Mismo formato exacto (Caja 180, huevo Color) y precio ya con IVA en
+      // ambos — comparación directa, sin estimaciones. Si están los dos, se
+      // usa el promedio; si solo hay uno, se usa ese.
+      const referencias = [];
+      if (precioSantaMarta) referencias.push({ fuente: "Huevos Santa Marta", valor: precioSantaMarta });
+      if (precioAgricovial) referencias.push({ fuente: "Agricovial", valor: precioAgricovial });
+      const promedio = referencias.reduce((suma, r) => suma + r.valor, 0) / referencias.length;
+
+      precioSugerido = promedio * 0.97; // 3% bajo el promedio de competencia
+      const nombresFuentes = referencias.map((r) => r.fuente).join(" y ");
+      metodo = `3% bajo ${nombresFuentes} (misma Caja 180, huevo color, precio ya con IVA)`;
+      referenciaFuente = referencias.length > 1 ? `Promedio: ${nombresFuentes}` : nombresFuentes;
+      referenciaValor = Math.round(promedio);
     } else {
       precioSugerido = precioHuevoConIva * 180 * factorTercera * 0.97;
       metodo =
-        "3% bajo el precio mayorista de Yemita + IVA (sin dato de Huevos Santa Marta esta semana para esta categoría)";
+        "3% bajo el precio mayorista de Yemita + IVA (sin dato de Santa Marta ni Agricovial esta semana para esta categoría)";
       referenciaFuente = "Yemita + IVA";
       referenciaValor = Math.round(precioYemitaConIvaEquivalente);
     }
@@ -247,8 +291,8 @@ function calcularSugerencias(productos, preciosYemita, precioRetailJumbo, precio
         metodo,
         referencia_fuente: referenciaFuente,
         referencia_valor: referenciaValor,
-        fuente_caja_180: precioSantaMarta ? "santa_marta" : "yemita",
         precio_santa_marta: precioSantaMarta,
+        precio_agricovial: precioAgricovial,
         precio_yemita_por_huevo: precioHuevo,
         precio_yemita_con_iva_por_huevo: Number(precioHuevoConIva.toFixed(2)),
         precio_yemita_con_iva_equivalente: Math.round(precioYemitaConIvaEquivalente),
@@ -347,10 +391,11 @@ async function enviarCorreo(productos, sugerencias) {
     <h2 style="font-family:sans-serif;color:#292524">Sugerencia semanal de precios — Avícola Doña Idelia</h2>
     <p style="font-family:sans-serif;color:#57534e;font-size:14px">
       "Referencia" es el precio de la competencia que efectivamente se usó ese producto esa
-      semana — Huevos Santa Marta (mismo formato Caja 180, huevo color), Yemita (mayorista, con
-      19% de IVA agregado) o Cintazul/Jumbo (retail estimado) — ya en la misma base que nuestro
-      precio (con IVA incluido). Esto es solo una sugerencia — nada se cambia solo en el
-      sistema, tú decides si ajustar cada precio desde "Productos y stock".
+      semana — Huevos Santa Marta y/o Agricovial (mismo formato Caja 180, huevo color; si están
+      los dos, es el promedio), Yemita (mayorista, con 19% de IVA agregado) o Cintazul/Jumbo
+      (retail estimado) — ya en la misma base que nuestro precio (con IVA incluido). Esto es
+      solo una sugerencia — nada se cambia solo en el sistema, tú decides si ajustar cada precio
+      desde "Productos y stock".
     </p>
     ${tablaSeccion("Bandejas (30 unidades)", bandejas)}
     ${tablaSeccion("Cajas", cajas)}
@@ -406,7 +451,21 @@ async function main() {
     );
   }
 
-  const sugerencias = calcularSugerencias(productos, preciosYemita, precioRetailJumbo, preciosSantaMarta);
+  let preciosAgricovial = {};
+  try {
+    preciosAgricovial = await obtenerPreciosAgricovial();
+    console.log("Precios Agricovial, Gallina Libre Caja 180 (ya con IVA):", preciosAgricovial);
+  } catch (err) {
+    console.error("No se pudo leer Agricovial, se sigue solo con Santa Marta/Yemita:", err.message);
+  }
+
+  const sugerencias = calcularSugerencias(
+    productos,
+    preciosYemita,
+    precioRetailJumbo,
+    preciosSantaMarta,
+    preciosAgricovial
+  );
 
   if (sugerencias.length === 0) {
     console.log("No se generó ninguna sugerencia (sin categorías equivalentes).");
