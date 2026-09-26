@@ -278,6 +278,15 @@ export default async function ReportesPage({
     const [nombre, datos] = [...productos.entries()].sort((a, b) => b[1].cantidad - a[1].cantidad)[0];
     return { categoria, top: { nombre, ...datos } };
   });
+  // Mismos datos que arriba, pero ordenados de más a menos vendido (no por
+  // tamaño del huevo) para el gráfico de barras.
+  const rankingPorCategoria = [...masVendidoPorCategoria].sort(
+    (a, b) => (b.top?.cantidad ?? 0) - (a.top?.cantidad ?? 0)
+  );
+  const maxCantidadCategoria = Math.max(
+    1,
+    ...masVendidoPorCategoria.map((m) => m.top?.cantidad ?? 0)
+  );
 
   return (
     <div className="space-y-6">
@@ -401,25 +410,46 @@ export default async function ReportesPage({
 
         <div className="rounded-2xl border border-stone-200 bg-white p-4">
           <p className="mb-3 text-sm font-medium text-stone-700">Más vendido por categoría</p>
-          <div className="divide-y divide-stone-100">
-            {masVendidoPorCategoria.map(({ categoria, top }) => (
-              <div key={categoria} className="py-2 text-sm">
-                <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">
-                  {NOMBRES_CATEGORIA[categoria]}
-                </p>
-                {top ? (
-                  <div className="flex items-center justify-between">
-                    <span className="text-stone-700">
-                      {top.nombre}{" "}
-                      <span className="text-xs text-stone-400">({NOMBRES_FORMATO[top.formato]})</span>
+          <p className="mb-3 text-xs text-stone-400">
+            El producto que más se vendió dentro de cada categoría, ordenado de más a menos
+            vendido
+          </p>
+          <div className="space-y-3">
+            {rankingPorCategoria.map(({ categoria, top }) => {
+              const cantidad = top?.cantidad ?? 0;
+              const porcentaje =
+                maxCantidadCategoria > 0 ? (cantidad / maxCantidadCategoria) * 100 : 0;
+              return (
+                <div key={categoria}>
+                  <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
+                    <span className="truncate">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-stone-400">
+                        {NOMBRES_CATEGORIA[categoria]}
+                      </span>{" "}
+                      {top ? (
+                        <span className="text-stone-700">
+                          {top.nombre}{" "}
+                          <span className="text-xs text-stone-400">
+                            ({NOMBRES_FORMATO[top.formato]})
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-stone-400">Sin ventas en el período</span>
+                      )}
                     </span>
-                    <span className="font-medium text-stone-800">{top.cantidad} un.</span>
+                    <span className="shrink-0 font-medium text-stone-800">
+                      {cantidad > 0 ? `${cantidad} un.` : "—"}
+                    </span>
                   </div>
-                ) : (
-                  <p className="text-stone-400">Sin ventas en el período</p>
-                )}
-              </div>
-            ))}
+                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-stone-100">
+                    <div
+                      className="h-full rounded-full bg-amber-600"
+                      style={{ width: `${porcentaje}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
