@@ -191,6 +191,16 @@ async function obtenerPrecioRetailJumbo() {
 const RATIO_RETAIL_RESPALDO = 2.7; // observado manualmente, sept. 2026
 const IVA = 0.19; // IVA Chile — Yemita cotiza Neto, nuestros precios son con IVA
 
+// Orden de calidad usado para mostrar los reportes (email y página) siempre
+// en el mismo orden, de mejor a peor categoría.
+const ORDEN_CATEGORIA = {
+  super_extra: 0,
+  extra: 1,
+  primera: 2,
+  segunda: 3,
+  tercera: 4,
+};
+
 function categoriaReferenciaYemita(categoria) {
   // "Tercera" no existe en la tabla de Yemita — se aproxima con "Segunda"
   // aplicando además un descuento extra (ver factorTercera más abajo).
@@ -347,9 +357,21 @@ async function enviarCorreo(productos, sugerencias) {
 
   // El reporte va separado en dos bloques — Bandejas (venta más chica, al
   // detalle) y Cajas (venta grande, B2B) — en vez de una sola lista
-  // mezclada, para que sea más fácil de leer de un vistazo.
-  const bandejas = conProducto.filter(({ p }) => p.formato === "bandeja_30");
-  const cajas = conProducto.filter(({ p }) => p.formato !== "bandeja_30");
+  // mezclada, para que sea más fácil de leer de un vistazo. Dentro de cada
+  // bloque, siempre en el mismo orden de calidad: Super Extra, Extra,
+  // Primera, Segunda, Tercera.
+  const ordenPorCategoria = (lista) =>
+    [...lista].sort(
+      (a, b) =>
+        (ORDEN_CATEGORIA[a.p.categoria] ?? 99) -
+        (ORDEN_CATEGORIA[b.p.categoria] ?? 99)
+    );
+  const bandejas = ordenPorCategoria(
+    conProducto.filter(({ p }) => p.formato === "bandeja_30")
+  );
+  const cajas = ordenPorCategoria(
+    conProducto.filter(({ p }) => p.formato !== "bandeja_30")
+  );
 
   const filaHtml = (s, p) => {
     const diff = s.precio_sugerido - s.precio_actual;
