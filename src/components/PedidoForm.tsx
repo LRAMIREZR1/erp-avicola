@@ -349,8 +349,14 @@ export default function PedidoForm({
     </form>
 
     {mostrarModalCliente && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-lg">
+        // El overlay entero scrollea (en vez de solo centrar el modal con
+        // flex) — así, en el celular, cuando el formulario (con el mapa
+        // incluido) es más alto que la pantalla, el botón "Guardar cliente"
+        // se puede alcanzar bajando el dedo en vez de quedar cortado fuera
+        // de la vista sin forma de llegar a él.
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-4">
+          <div className="flex min-h-full items-center justify-center">
+          <div className="my-8 w-full max-w-md rounded-2xl bg-white p-5 shadow-lg">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-stone-800">Nuevo cliente</h2>
               <button
@@ -447,6 +453,7 @@ export default function PedidoForm({
                 {creandoCliente ? "Guardando..." : "Guardar cliente"}
               </button>
             </div>
+          </div>
           </div>
         </div>
       )}
