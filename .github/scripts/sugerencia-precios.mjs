@@ -16,6 +16,15 @@
 // de IVA antes de aplicar el margen. El formato bandeja_30 no necesita este
 // ajuste aparte porque ya se calibra contra el precio retail de Jumbo, que en
 // Chile siempre se exhibe al público con IVA incluido.
+//
+// Huevos Santa Marta (huevo Color, igual que el nuestro) vende exactamente en
+// Caja de 6 Bandejas de 30 = 180 unidades — el mismo formato que usamos para
+// todos nuestros productos "Caja 180" — y sus precios publicados también
+// incluyen IVA (confirmado revisando el desglose del carro de compras:
+// subtotal + despacho = total, sin sumar IVA aparte). Por eso, cuando hay
+// dato de Santa Marta para la categoría, se usa directo como base para
+// Caja 180 (sin necesidad de estimar desde Yemita) — es una comparación
+// mucho más directa: mismo formato, mismo color, misma base de IVA.
 
 import nodemailer from "nodemailer";
 
@@ -72,6 +81,43 @@ async function obtenerPreciosYemita() {
   return precios;
 }
 
+// --- Precios de Huevos Santa Marta, huevo Color, Caja de 6 Bandejas (30 uni)
+// = 180 unidades — mismo formato y color que nuestros productos Caja 180.
+// La página trae varias presentaciones por categoría (estuches, packs de 60,
+// etc.) a precios muy distintos; el patrón busca específicamente la de
+// "Caja de 6 Bandejas ... 180 unidades" para no mezclarlas. Si una categoría
+// no aparece en esta presentación esa semana (ej. Super Extra), simplemente
+// no se agrega al resultado y calcularSugerencias() usa el respaldo de
+// Yemita para esa categoría en particular.
+const NOMBRE_SANTA_MARTA = {
+  segunda: "SEGUNDA",
+  primera: "PRIMERA",
+  extra: "EXTRA",
+  tercera: "TERCERA",
+  super_extra: "SUPER EXTRA",
+};
+
+async function obtenerPreciosSantaMarta() {
+  const res = await fetch(
+    "https://www.huevossantamarta.cl/productos/linea/1/huevos/dest?ma=&ta=&co=&em=&ca=5",
+    { headers: { "User-Agent": "Mozilla/5.0 (compatible; DonaIdeliaBot/1.0)" } }
+  );
+  if (!res.ok) throw new Error(`Huevos Santa Marta no respondió: ${res.status}`);
+  const html = await res.text();
+  const texto = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+
+  const precios = {};
+  for (const [categoria, nombre] of Object.entries(NOMBRE_SANTA_MARTA)) {
+    const regex = new RegExp(
+      `HUEVOS ${nombre} COLOR[\\s\\S]{0,200}?CAJA DE 6 BANDEJAS[\\s\\S]{0,60}?180 UNIDADES[\\s\\S]{0,50}?\\$\\s?([\\d.]+)`,
+      "i"
+    );
+    const match = texto.match(regex);
+    if (match) precios[categoria] = Number(match[1].replace(/\./g, ""));
+  }
+  return precios;
+}
+
 // --- Precio retail de referencia: Cintazul Grande, bandeja de 30, en Jumbo.cl ---
 // Se usa solo para calibrar la relación entre precio mayorista y precio al
 // público — si esta lectura falla (la página cambió, bloqueo, etc.) el
@@ -122,7 +168,7 @@ function unidadesPorFormato(formato) {
   return 180; // caja_180
 }
 
-function calcularSugerencias(productos, preciosYemita, precioRetailJumbo) {
+function calcularSugerencias(productos, preciosYemita, precioRetailJumbo, preciosSantaMarta = {}) {
   const precioMayoristaGrande30 = (preciosYemita.primera ?? 0) * 30;
   const ratioRetail =
     precioRetailJumbo && precioMayoristaGrande30
@@ -146,6 +192,9 @@ function calcularSugerencias(productos, preciosYemita, precioRetailJumbo) {
 
     let precioSugerido;
     let metodo;
+    // Precio de Santa Marta para esta categoría exacta (Caja 180, huevo
+    // Color) — ya incluye IVA, no necesita ningún ajuste extra.
+    const precioSantaMarta = preciosSantaMarta[p.categoria] ?? null;
 
     if (p.formato === "bandeja_30") {
       const retailEstimado = precioHuevo * 30 * ratioRetail * factorTercera;
@@ -154,9 +203,15 @@ function calcularSugerencias(productos, preciosYemita, precioRetailJumbo) {
     } else if (p.formato === "caja_120") {
       precioSugerido = precioHuevoConIva * 120 * factorTercera * 1.05;
       metodo = "5% sobre el precio mayorista de Yemita + IVA (venta media)";
+    } else if (precioSantaMarta) {
+      // Mismo formato exacto (Caja 180, huevo Color) y precio ya con IVA —
+      // comparación directa, sin estimaciones.
+      precioSugerido = precioSantaMarta * 0.97; // 3% bajo Huevos Santa Marta
+      metodo = "3% bajo Huevos Santa Marta (misma Caja 180, huevo color, precio ya con IVA)";
     } else {
       precioSugerido = precioHuevoConIva * 180 * factorTercera * 0.97;
-      metodo = "3% bajo el precio mayorista de Yemita + IVA (venta grande, B2B)";
+      metodo =
+        "3% bajo el precio mayorista de Yemita + IVA (sin dato de Huevos Santa Marta esta semana para esta categoría)";
     }
 
     precioSugerido = Math.round(precioSugerido / 50) * 50;
@@ -167,6 +222,8 @@ function calcularSugerencias(productos, preciosYemita, precioRetailJumbo) {
       precio_sugerido: precioSugerido,
       detalle: {
         metodo,
+        fuente_caja_180: precioSantaMarta ? "santa_marta" : "yemita",
+        precio_santa_marta: precioSantaMarta,
         precio_yemita_por_huevo: precioHuevo,
         precio_yemita_con_iva_por_huevo: Number(precioHuevoConIva.toFixed(2)),
         precio_yemita_con_iva_equivalente: Math.round(precioYemitaConIvaEquivalente),
@@ -297,7 +354,18 @@ async function main() {
     console.error("No se pudo leer Jumbo, se usa ratio de respaldo:", err.message);
   }
 
-  const sugerencias = calcularSugerencias(productos, preciosYemita, precioRetailJumbo);
+  let preciosSantaMarta = {};
+  try {
+    preciosSantaMarta = await obtenerPreciosSantaMarta();
+    console.log("Precios Huevos Santa Marta, Caja 180 (ya con IVA):", preciosSantaMarta);
+  } catch (err) {
+    console.error(
+      "No se pudo leer Huevos Santa Marta, se usa Yemita+IVA de respaldo para Caja 180:",
+      err.message
+    );
+  }
+
+  const sugerencias = calcularSugerencias(productos, preciosYemita, precioRetailJumbo, preciosSantaMarta);
 
   if (sugerencias.length === 0) {
     console.log("No se generó ninguna sugerencia (sin categorías equivalentes).");
