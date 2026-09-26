@@ -8,6 +8,7 @@ import {
 import StatCard from "@/components/StatCard";
 import EliminarPrecioMercadoButton from "@/components/EliminarPrecioMercadoButton";
 import BotonRegistrarPrecioMercado from "@/components/BotonRegistrarPrecioMercado";
+import SemanaSugerenciaSelector from "@/components/SemanaSugerenciaSelector";
 import {
   NOMBRES_CATEGORIA,
   NOMBRES_REGION_ODEPA,
@@ -92,10 +93,10 @@ function formatPrecio(precio: number, unidad: UnidadPrecioMercado) {
 export default async function PrecioMercadoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string }>;
+  searchParams: Promise<{ ok?: string; semana?: string }>;
 }) {
   const rol = await requireRol(["administrador"]);
-  const { ok } = await searchParams;
+  const { ok, semana } = await searchParams;
   const supabase = await createClient();
   const hoy = hoyChile();
 
@@ -111,22 +112,27 @@ export default async function PrecioMercadoPage({
       .select("id, semana_fecha, region, precio, fuente_url")
       .order("semana_fecha", { ascending: false })
       .limit(12),
-    // Trae varias semanas y se queda solo con la más reciente más abajo —
-    // así, si una semana faltó algún producto, no se mezcla con la anterior.
+    // Trae bastantes semanas hacia atrás (no solo la última) para poder
+    // elegir la semana a mostrar con el selector más abajo.
     supabase
       .from("sugerencias_precio")
       .select("id, semana_fecha, precio_actual, precio_sugerido, detalle, productos(nombre, formato, categoria)")
       .order("semana_fecha", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(60),
+      .limit(500),
   ]);
 
   const lista = (precios ?? []) as unknown as PrecioMercado[];
   const listaOdepa = (referencias ?? []) as ReferenciaOdepa[];
   const todasSugerencias = (sugerenciasData ?? []) as unknown as SugerenciaPrecio[];
-  const semanaSugerenciaMasReciente = todasSugerencias[0]?.semana_fecha;
+  // Semanas con reporte disponible, de la más reciente a la más antigua.
+  const semanasDisponibles = Array.from(
+    new Set(todasSugerencias.map((s) => s.semana_fecha))
+  ).sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+  const semanaSeleccionada =
+    semana && semanasDisponibles.includes(semana) ? semana : semanasDisponibles[0];
   const sugerencias = todasSugerencias.filter(
-    (s) => s.semana_fecha === semanaSugerenciaMasReciente
+    (s) => s.semana_fecha === semanaSeleccionada
   );
   // Separadas en dos bloques — Bandejas (venta al detalle) y Cajas (venta
   // grande, B2B) — en vez de una sola lista mezclada. Dentro de cada bloque,
@@ -197,10 +203,18 @@ export default async function PrecioMercadoPage({
 
       {sugerencias.length > 0 && (
         <div className="rounded-2xl border border-stone-200 bg-white p-4">
-          <h2 className="text-sm font-semibold text-stone-700">Sugerencia semanal de precios</h2>
+          <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-stone-700">Sugerencia semanal de precios</h2>
+            {semanasDisponibles.length > 1 && (
+              <SemanaSugerenciaSelector
+                semanas={semanasDisponibles}
+                actual={semanaSeleccionada!}
+              />
+            )}
+          </div>
           <p className="mb-3 text-xs text-stone-400">
             Calculada automáticamente cada semana — semana del{" "}
-            {formatFecha(semanaSugerenciaMasReciente!)}. &quot;Referencia&quot; es el precio de la
+            {formatFecha(semanaSeleccionada!)}. &quot;Referencia&quot; es el precio de la
             competencia que efectivamente se usó para calcular el sugerido de cada producto —
             Huevos Santa Marta y/o Agricovial (mismo formato Caja 180, huevo color; si están los
             dos, es el promedio), Yemita (mayorista, con 19% de IVA agregado) o Cintazul/Jumbo
