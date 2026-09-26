@@ -297,26 +297,51 @@ async function enviarCorreo(productos, sugerencias) {
   });
 
   const porId = new Map(productos.map((p) => [p.id, p]));
-  const filas = sugerencias
-    .map((s) => {
-      const p = porId.get(s.producto_id);
-      if (!p) return "";
-      const diff = s.precio_sugerido - s.precio_actual;
-      const color = diff > 0 ? "#15803d" : diff < 0 ? "#b91c1c" : "#78716c";
-      const signo = diff > 0 ? "+" : "";
-      const referenciaValor = s.detalle?.referencia_valor;
-      const referenciaFuente = s.detalle?.referencia_fuente;
-      return `<tr>
-        <td style="padding:4px 8px;border-bottom:1px solid #e7e5e4">${p.nombre}</td>
-        <td style="padding:4px 8px;border-bottom:1px solid #e7e5e4;text-align:right">${formatCLP(p.precio)}</td>
-        <td style="padding:4px 8px;border-bottom:1px solid #e7e5e4;text-align:right;color:#78716c">${
-          referenciaValor != null ? formatCLP(referenciaValor) : "—"
-        }<br/><span style="font-size:11px;color:#a8a29e">${referenciaFuente ?? ""}</span></td>
-        <td style="padding:4px 8px;border-bottom:1px solid #e7e5e4;text-align:right;font-weight:bold">${formatCLP(s.precio_sugerido)}</td>
-        <td style="padding:4px 8px;border-bottom:1px solid #e7e5e4;text-align:right;color:${color}">${signo}${formatCLP(diff)}</td>
-      </tr>`;
-    })
-    .join("");
+  const conProducto = sugerencias
+    .map((s) => ({ s, p: porId.get(s.producto_id) }))
+    .filter(({ p }) => p);
+
+  // El reporte va separado en dos bloques — Bandejas (venta más chica, al
+  // detalle) y Cajas (venta grande, B2B) — en vez de una sola lista
+  // mezclada, para que sea más fácil de leer de un vistazo.
+  const bandejas = conProducto.filter(({ p }) => p.formato === "bandeja_30");
+  const cajas = conProducto.filter(({ p }) => p.formato !== "bandeja_30");
+
+  const filaHtml = (s, p) => {
+    const diff = s.precio_sugerido - s.precio_actual;
+    const color = diff > 0 ? "#15803d" : diff < 0 ? "#b91c1c" : "#78716c";
+    const signo = diff > 0 ? "+" : "";
+    const referenciaValor = s.detalle?.referencia_valor;
+    const referenciaFuente = s.detalle?.referencia_fuente;
+    return `<tr>
+      <td style="padding:4px 8px;border-bottom:1px solid #e7e5e4">${p.nombre}</td>
+      <td style="padding:4px 8px;border-bottom:1px solid #e7e5e4;text-align:right">${formatCLP(p.precio)}</td>
+      <td style="padding:4px 8px;border-bottom:1px solid #e7e5e4;text-align:right;color:#78716c">${
+        referenciaValor != null ? formatCLP(referenciaValor) : "—"
+      }<br/><span style="font-size:11px;color:#a8a29e">${referenciaFuente ?? ""}</span></td>
+      <td style="padding:4px 8px;border-bottom:1px solid #e7e5e4;text-align:right;font-weight:bold">${formatCLP(s.precio_sugerido)}</td>
+      <td style="padding:4px 8px;border-bottom:1px solid #e7e5e4;text-align:right;color:${color}">${signo}${formatCLP(diff)}</td>
+    </tr>`;
+  };
+
+  const tablaSeccion = (titulo, lista) => {
+    if (lista.length === 0) return "";
+    return `
+      <h3 style="font-family:sans-serif;color:#44403c;font-size:14px;margin:20px 0 8px">${titulo}</h3>
+      <table style="border-collapse:collapse;width:100%;max-width:680px;font-family:sans-serif;font-size:13px">
+        <thead>
+          <tr style="background:#f5f5f4;text-align:left">
+            <th style="padding:4px 8px">Producto</th>
+            <th style="padding:4px 8px;text-align:right">Precio actual</th>
+            <th style="padding:4px 8px;text-align:right">Referencia</th>
+            <th style="padding:4px 8px;text-align:right">Sugerido</th>
+            <th style="padding:4px 8px;text-align:right">Diferencia</th>
+          </tr>
+        </thead>
+        <tbody>${lista.map(({ s, p }) => filaHtml(s, p)).join("")}</tbody>
+      </table>
+    `;
+  };
 
   const html = `
     <h2 style="font-family:sans-serif;color:#292524">Sugerencia semanal de precios — Avícola Doña Idelia</h2>
@@ -327,18 +352,8 @@ async function enviarCorreo(productos, sugerencias) {
       precio (con IVA incluido). Esto es solo una sugerencia — nada se cambia solo en el
       sistema, tú decides si ajustar cada precio desde "Productos y stock".
     </p>
-    <table style="border-collapse:collapse;width:100%;max-width:680px;font-family:sans-serif;font-size:13px">
-      <thead>
-        <tr style="background:#f5f5f4;text-align:left">
-          <th style="padding:4px 8px">Producto</th>
-          <th style="padding:4px 8px;text-align:right">Precio actual</th>
-          <th style="padding:4px 8px;text-align:right">Referencia</th>
-          <th style="padding:4px 8px;text-align:right">Sugerido</th>
-          <th style="padding:4px 8px;text-align:right">Diferencia</th>
-        </tr>
-      </thead>
-      <tbody>${filas}</tbody>
-    </table>
+    ${tablaSeccion("Bandejas (30 unidades)", bandejas)}
+    ${tablaSeccion("Cajas", cajas)}
     <p style="font-family:sans-serif;color:#a8a29e;font-size:12px;margin-top:16px">
       Detalle completo en el sistema, en "Precio de mercado del huevo".
     </p>
