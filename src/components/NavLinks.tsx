@@ -89,6 +89,11 @@ const SECCIONES: NavSeccion[] = [
         label: "Tendencia de mercado",
         roles: ["administrador"],
       },
+      {
+        href: "/admin/precio-mayorista",
+        label: "Precio mayorista",
+        roles: ["administrador"],
+      },
     ],
   },
   {
