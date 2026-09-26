@@ -46,7 +46,10 @@ interface SugerenciaPrecio {
   semana_fecha: string;
   precio_actual: number;
   precio_sugerido: number;
-  detalle: { metodo?: string } | null;
+  detalle: {
+    metodo?: string;
+    precio_yemita_con_iva_equivalente?: number;
+  } | null;
   productos: { nombre: string } | null;
 }
 
@@ -167,17 +170,22 @@ export default async function PrecioMercadoPage({
           <h2 className="text-sm font-semibold text-stone-700">Sugerencia semanal de precios</h2>
           <p className="mb-3 text-xs text-stone-400">
             Calculada automáticamente cada semana comparando con Yemita (mayorista) y
-            Cintazul/Jumbo (retail) — semana del {formatFecha(semanaSugerenciaMasReciente!)}. Es
-            solo una referencia: nada se cambia solo, tú decides si ajustar el precio desde
-            &quot;Productos y stock&quot;.
+            Cintazul/Jumbo (retail) — semana del {formatFecha(semanaSugerenciaMasReciente!)}.
+            &quot;Yemita c/IVA&quot; es lo que costaría esa misma cantidad de huevos comprada a
+            Yemita agregando el 19% de IVA, para comparar en igualdad de condiciones con nuestro
+            precio (que siempre incluye IVA). Es solo una referencia: nada se cambia solo, tú
+            decides si ajustar el precio desde &quot;Productos y stock&quot;.
           </p>
           <div className="-mx-4 overflow-x-auto px-4">
-            <table className="w-full min-w-[560px] text-left text-sm">
+            <table className="w-full min-w-[680px] text-left text-sm">
               <thead>
                 <tr className="text-xs uppercase text-stone-500">
                   <th className="whitespace-nowrap py-2 pr-3 font-medium">Producto</th>
                   <th className="whitespace-nowrap py-2 px-3 text-right font-medium">
                     Precio actual
+                  </th>
+                  <th className="whitespace-nowrap py-2 px-3 text-right font-medium">
+                    Yemita c/IVA
                   </th>
                   <th className="whitespace-nowrap py-2 px-3 text-right font-medium">Sugerido</th>
                   <th className="whitespace-nowrap py-2 pl-3 text-right font-medium">
@@ -188,6 +196,7 @@ export default async function PrecioMercadoPage({
               <tbody className="divide-y divide-stone-100">
                 {sugerencias.map((s) => {
                   const diferencia = s.precio_sugerido - s.precio_actual;
+                  const yemitaConIva = s.detalle?.precio_yemita_con_iva_equivalente;
                   return (
                     <tr key={s.id}>
                       <td className="whitespace-nowrap py-2 pr-3 text-stone-700">
@@ -195,6 +204,9 @@ export default async function PrecioMercadoPage({
                       </td>
                       <td className="whitespace-nowrap py-2 px-3 text-right text-stone-600">
                         {formatCLP(s.precio_actual)}
+                      </td>
+                      <td className="whitespace-nowrap py-2 px-3 text-right text-stone-500">
+                        {yemitaConIva != null ? formatCLP(yemitaConIva) : "—"}
                       </td>
                       <td className="whitespace-nowrap py-2 px-3 text-right font-semibold text-stone-800">
                         {formatCLP(s.precio_sugerido)}
