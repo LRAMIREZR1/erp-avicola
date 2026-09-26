@@ -52,7 +52,25 @@ interface SugerenciaPrecio {
     referencia_fuente?: string;
     referencia_valor?: number;
   } | null;
-  productos: { nombre: string; formato: Formato } | null;
+  productos: { nombre: string; formato: Formato; categoria: Categoria } | null;
+}
+
+// Orden de calidad para mostrar siempre igual: Super Extra, Extra, Primera,
+// Segunda, Tercera.
+const ORDEN_CATEGORIA: Record<Categoria, number> = {
+  super_extra: 0,
+  extra: 1,
+  primera: 2,
+  segunda: 3,
+  tercera: 4,
+};
+
+function ordenarPorCategoria(lista: SugerenciaPrecio[]) {
+  return [...lista].sort((a, b) => {
+    const oa = a.productos ? ORDEN_CATEGORIA[a.productos.categoria] ?? 99 : 99;
+    const ob = b.productos ? ORDEN_CATEGORIA[b.productos.categoria] ?? 99 : 99;
+    return oa - ob;
+  });
 }
 
 function haceDiasFecha(dias: number) {
@@ -97,7 +115,7 @@ export default async function PrecioMercadoPage({
     // así, si una semana faltó algún producto, no se mezcla con la anterior.
     supabase
       .from("sugerencias_precio")
-      .select("id, semana_fecha, precio_actual, precio_sugerido, detalle, productos(nombre, formato)")
+      .select("id, semana_fecha, precio_actual, precio_sugerido, detalle, productos(nombre, formato, categoria)")
       .order("semana_fecha", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(60),
@@ -111,9 +129,15 @@ export default async function PrecioMercadoPage({
     (s) => s.semana_fecha === semanaSugerenciaMasReciente
   );
   // Separadas en dos bloques — Bandejas (venta al detalle) y Cajas (venta
-  // grande, B2B) — en vez de una sola lista mezclada.
-  const sugerenciasBandejas = sugerencias.filter((s) => s.productos?.formato === "bandeja_30");
-  const sugerenciasCajas = sugerencias.filter((s) => s.productos?.formato !== "bandeja_30");
+  // grande, B2B) — en vez de una sola lista mezclada. Dentro de cada bloque,
+  // siempre en el mismo orden de calidad: Super Extra, Extra, Primera,
+  // Segunda, Tercera.
+  const sugerenciasBandejas = ordenarPorCategoria(
+    sugerencias.filter((s) => s.productos?.formato === "bandeja_30")
+  );
+  const sugerenciasCajas = ordenarPorCategoria(
+    sugerencias.filter((s) => s.productos?.formato !== "bandeja_30")
+  );
 
   // Último precio registrado por zona (la lista ya viene ordenada del más
   // reciente al más antiguo).
@@ -178,10 +202,11 @@ export default async function PrecioMercadoPage({
             Calculada automáticamente cada semana — semana del{" "}
             {formatFecha(semanaSugerenciaMasReciente!)}. &quot;Referencia&quot; es el precio de la
             competencia que efectivamente se usó para calcular el sugerido de cada producto —
-            Huevos Santa Marta (mismo formato Caja 180, huevo color), Yemita (mayorista, con 19%
-            de IVA agregado) o Cintazul/Jumbo (retail estimado) — ya en la misma base que nuestro
-            precio (con IVA incluido). Es solo una referencia: nada se cambia solo, tú decides si
-            ajustar el precio desde &quot;Productos y stock&quot;.
+            Huevos Santa Marta y/o Agricovial (mismo formato Caja 180, huevo color; si están los
+            dos, es el promedio), Yemita (mayorista, con 19% de IVA agregado) o Cintazul/Jumbo
+            (retail estimado) — ya en la misma base que nuestro precio (con IVA incluido). Es
+            solo una referencia: nada se cambia solo, tú decides si ajustar el precio desde
+            &quot;Productos y stock&quot;.
           </p>
           <TablaSugerencias titulo="Bandejas (30 unidades)" lista={sugerenciasBandejas} />
           <TablaSugerencias titulo="Cajas" lista={sugerenciasCajas} />
