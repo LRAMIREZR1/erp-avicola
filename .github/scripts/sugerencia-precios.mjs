@@ -8,6 +8,14 @@
 // usando la service_role key de Supabase (variable SUPABASE_SERVICE_KEY) que
 // salta las reglas de seguridad (RLS) — por eso este script nunca se ejecuta
 // desde el navegador ni desde la app en sí.
+//
+// Nota IVA: el precio mayorista de Yemita es Neto (sin IVA), mientras que
+// nuestros precios propios (precio_actual) siempre incluyen IVA. Para que la
+// sugerencia sea comparable con lo que de verdad cobramos, a los formatos que
+// se calculan directo desde Yemita (caja_120, caja_180) se les agrega el 19%
+// de IVA antes de aplicar el margen. El formato bandeja_30 no necesita este
+// ajuste aparte porque ya se calibra contra el precio retail de Jumbo, que en
+// Chile siempre se exhibe al público con IVA incluido.
 
 import nodemailer from "nodemailer";
 
@@ -100,11 +108,18 @@ async function obtenerPrecioRetailJumbo() {
 }
 
 const RATIO_RETAIL_RESPALDO = 2.7; // observado manualmente, sept. 2026
+const IVA = 0.19; // IVA Chile — Yemita cotiza Neto, nuestros precios son con IVA
 
 function categoriaReferenciaYemita(categoria) {
   // "Tercera" no existe en la tabla de Yemita — se aproxima con "Segunda"
   // aplicando además un descuento extra (ver factorTercera más abajo).
   return categoria === "tercera" ? "segunda" : categoria;
+}
+
+function unidadesPorFormato(formato) {
+  if (formato === "bandeja_30") return 30;
+  if (formato === "caja_120") return 120;
+  return 180; // caja_180
 }
 
 function calcularSugerencias(productos, preciosYemita, precioRetailJumbo) {
@@ -122,6 +137,12 @@ function calcularSugerencias(productos, preciosYemita, precioRetailJumbo) {
     if (!precioHuevo) continue; // sin dato de competencia esta semana para esta categoría
 
     const factorTercera = p.categoria === "tercera" ? 0.93 : 1;
+    const precioHuevoConIva = precioHuevo * (1 + IVA);
+    const unidades = unidadesPorFormato(p.formato);
+    // Referencia: cuánto costaría comprar esa misma cantidad de huevos a
+    // Yemita, agregando el 19% de IVA — para comparar contra precio_actual
+    // (que siempre incluye IVA) en igualdad de condiciones.
+    const precioYemitaConIvaEquivalente = precioHuevoConIva * unidades * factorTercera;
 
     let precioSugerido;
     let metodo;
@@ -129,13 +150,13 @@ function calcularSugerencias(productos, preciosYemita, precioRetailJumbo) {
     if (p.formato === "bandeja_30") {
       const retailEstimado = precioHuevo * 30 * ratioRetail * factorTercera;
       precioSugerido = retailEstimado * 0.88; // ~12% bajo el retail estimado
-      metodo = "12% bajo el precio retail estimado (calibrado con Cintazul en Jumbo)";
+      metodo = "12% bajo el precio retail estimado (calibrado con Cintazul en Jumbo, ya incluye IVA)";
     } else if (p.formato === "caja_120") {
-      precioSugerido = precioHuevo * 120 * factorTercera * 1.05;
-      metodo = "5% sobre el precio mayorista de Yemita (venta media)";
+      precioSugerido = precioHuevoConIva * 120 * factorTercera * 1.05;
+      metodo = "5% sobre el precio mayorista de Yemita + IVA (venta media)";
     } else {
-      precioSugerido = precioHuevo * 180 * factorTercera * 0.97;
-      metodo = "3% bajo el precio mayorista de Yemita (venta grande, B2B)";
+      precioSugerido = precioHuevoConIva * 180 * factorTercera * 0.97;
+      metodo = "3% bajo el precio mayorista de Yemita + IVA (venta grande, B2B)";
     }
 
     precioSugerido = Math.round(precioSugerido / 50) * 50;
@@ -147,6 +168,8 @@ function calcularSugerencias(productos, preciosYemita, precioRetailJumbo) {
       detalle: {
         metodo,
         precio_yemita_por_huevo: precioHuevo,
+        precio_yemita_con_iva_por_huevo: Number(precioHuevoConIva.toFixed(2)),
+        precio_yemita_con_iva_equivalente: Math.round(precioYemitaConIvaEquivalente),
         categoria_referencia_yemita: catRef,
         ratio_retail_usado: Number(ratioRetail.toFixed(2)),
         retail_jumbo_disponible_esta_semana: precioRetailJumbo != null,
@@ -199,9 +222,13 @@ async function enviarCorreo(productos, sugerencias) {
       const diff = s.precio_sugerido - s.precio_actual;
       const color = diff > 0 ? "#15803d" : diff < 0 ? "#b91c1c" : "#78716c";
       const signo = diff > 0 ? "+" : "";
+      const yemitaConIva = s.detalle?.precio_yemita_con_iva_equivalente;
       return `<tr>
         <td style="padding:4px 8px;border-bottom:1px solid #e7e5e4">${p.nombre}</td>
         <td style="padding:4px 8px;border-bottom:1px solid #e7e5e4;text-align:right">${formatCLP(p.precio)}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #e7e5e4;text-align:right;color:#78716c">${
+          yemitaConIva != null ? formatCLP(yemitaConIva) : "—"
+        }</td>
         <td style="padding:4px 8px;border-bottom:1px solid #e7e5e4;text-align:right;font-weight:bold">${formatCLP(s.precio_sugerido)}</td>
         <td style="padding:4px 8px;border-bottom:1px solid #e7e5e4;text-align:right;color:${color}">${signo}${formatCLP(diff)}</td>
       </tr>`;
@@ -211,15 +238,18 @@ async function enviarCorreo(productos, sugerencias) {
   const html = `
     <h2 style="font-family:sans-serif;color:#292524">Sugerencia semanal de precios — Avícola Doña Idelia</h2>
     <p style="font-family:sans-serif;color:#57534e;font-size:14px">
-      Comparación contra Yemita (mayorista) y Cintazul/Jumbo (retail). Esto es solo una
-      sugerencia — nada se cambia solo en el sistema, tú decides si ajustar cada precio
-      desde "Productos y stock".
+      Comparación contra Yemita (mayorista) y Cintazul/Jumbo (retail). "Yemita c/IVA" es lo que
+      costaría esa misma cantidad de huevos comprada a Yemita, agregando el 19% de IVA para que
+      sea comparable con nuestro precio (que siempre incluye IVA). Esto es solo una sugerencia —
+      nada se cambia solo en el sistema, tú decides si ajustar cada precio desde "Productos y
+      stock".
     </p>
-    <table style="border-collapse:collapse;width:100%;max-width:600px;font-family:sans-serif;font-size:13px">
+    <table style="border-collapse:collapse;width:100%;max-width:680px;font-family:sans-serif;font-size:13px">
       <thead>
         <tr style="background:#f5f5f4;text-align:left">
           <th style="padding:4px 8px">Producto</th>
           <th style="padding:4px 8px;text-align:right">Precio actual</th>
+          <th style="padding:4px 8px;text-align:right">Yemita c/IVA</th>
           <th style="padding:4px 8px;text-align:right">Sugerido</th>
           <th style="padding:4px 8px;text-align:right">Diferencia</th>
         </tr>
