@@ -41,6 +41,15 @@ interface ReferenciaOdepa {
   fuente_url: string | null;
 }
 
+interface SugerenciaPrecio {
+  id: string;
+  semana_fecha: string;
+  precio_actual: number;
+  precio_sugerido: number;
+  detalle: { metodo?: string } | null;
+  productos: { nombre: string } | null;
+}
+
 function haceDiasFecha(dias: number) {
   const d = new Date();
   d.setDate(d.getDate() - dias);
@@ -67,7 +76,7 @@ export default async function PrecioMercadoPage({
   const supabase = await createClient();
   const hoy = hoyChile();
 
-  const [{ data: precios }, { data: referencias }] = await Promise.all([
+  const [{ data: precios }, { data: referencias }, { data: sugerenciasData }] = await Promise.all([
     supabase
       .from("precios_mercado")
       .select("id, fecha, zona, categoria, unidad, precio, fuente, nota, vendedores(nombre)")
@@ -79,10 +88,23 @@ export default async function PrecioMercadoPage({
       .select("id, semana_fecha, region, precio, fuente_url")
       .order("semana_fecha", { ascending: false })
       .limit(12),
+    // Trae varias semanas y se queda solo con la más reciente más abajo —
+    // así, si una semana faltó algún producto, no se mezcla con la anterior.
+    supabase
+      .from("sugerencias_precio")
+      .select("id, semana_fecha, precio_actual, precio_sugerido, detalle, productos(nombre)")
+      .order("semana_fecha", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(60),
   ]);
 
   const lista = (precios ?? []) as unknown as PrecioMercado[];
   const listaOdepa = (referencias ?? []) as ReferenciaOdepa[];
+  const todasSugerencias = (sugerenciasData ?? []) as unknown as SugerenciaPrecio[];
+  const semanaSugerenciaMasReciente = todasSugerencias[0]?.semana_fecha;
+  const sugerencias = todasSugerencias.filter(
+    (s) => s.semana_fecha === semanaSugerenciaMasReciente
+  );
 
   // Último precio registrado por zona (la lista ya viene ordenada del más
   // reciente al más antiguo).
@@ -139,6 +161,64 @@ export default async function PrecioMercadoPage({
           }
         />
       </div>
+
+      {sugerencias.length > 0 && (
+        <div className="rounded-2xl border border-stone-200 bg-white p-4">
+          <h2 className="text-sm font-semibold text-stone-700">Sugerencia semanal de precios</h2>
+          <p className="mb-3 text-xs text-stone-400">
+            Calculada automáticamente cada semana comparando con Yemita (mayorista) y
+            Cintazul/Jumbo (retail) — semana del {formatFecha(semanaSugerenciaMasReciente!)}. Es
+            solo una referencia: nada se cambia solo, tú decides si ajustar el precio desde
+            &quot;Productos y stock&quot;.
+          </p>
+          <div className="-mx-4 overflow-x-auto px-4">
+            <table className="w-full min-w-[560px] text-left text-sm">
+              <thead>
+                <tr className="text-xs uppercase text-stone-500">
+                  <th className="whitespace-nowrap py-2 pr-3 font-medium">Producto</th>
+                  <th className="whitespace-nowrap py-2 px-3 text-right font-medium">
+                    Precio actual
+                  </th>
+                  <th className="whitespace-nowrap py-2 px-3 text-right font-medium">Sugerido</th>
+                  <th className="whitespace-nowrap py-2 pl-3 text-right font-medium">
+                    Diferencia
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-100">
+                {sugerencias.map((s) => {
+                  const diferencia = s.precio_sugerido - s.precio_actual;
+                  return (
+                    <tr key={s.id}>
+                      <td className="whitespace-nowrap py-2 pr-3 text-stone-700">
+                        {s.productos?.nombre ?? "—"}
+                      </td>
+                      <td className="whitespace-nowrap py-2 px-3 text-right text-stone-600">
+                        {formatCLP(s.precio_actual)}
+                      </td>
+                      <td className="whitespace-nowrap py-2 px-3 text-right font-semibold text-stone-800">
+                        {formatCLP(s.precio_sugerido)}
+                      </td>
+                      <td
+                        className={`whitespace-nowrap py-2 pl-3 text-right font-medium ${
+                          diferencia > 0
+                            ? "text-green-700"
+                            : diferencia < 0
+                              ? "text-red-600"
+                              : "text-stone-400"
+                        }`}
+                      >
+                        {diferencia > 0 ? "+" : ""}
+                        {formatCLP(diferencia)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-stone-700">Registrar un precio</h2>
