@@ -272,20 +272,31 @@ export default async function ReportesPage({
     mapaProductos.set(producto.nombre, actual);
     porCategoriaProducto.set(producto.categoria, mapaProductos);
   }
-  const masVendidoPorCategoria = CATEGORIAS_ORDENADAS.map((categoria) => {
+  const totalesPorCategoria = CATEGORIAS_ORDENADAS.map((categoria) => {
     const productos = porCategoriaProducto.get(categoria);
-    if (!productos || productos.size === 0) return { categoria, top: null };
-    const [nombre, datos] = [...productos.entries()].sort((a, b) => b[1].cantidad - a[1].cantidad)[0];
-    return { categoria, top: { nombre, ...datos } };
+    // Total de la categoría: la suma de TODOS sus productos (por ejemplo,
+    // Bandeja 30 + Caja 180 de "Extra" juntos), no solo el que más se vendió.
+    const totalCategoria = productos
+      ? [...productos.values()].reduce((suma, d) => suma + d.cantidad, 0)
+      : 0;
+    const top =
+      productos && productos.size > 0
+        ? (() => {
+            const [nombre, datos] = [...productos.entries()].sort(
+              (a, b) => b[1].cantidad - a[1].cantidad
+            )[0];
+            return { nombre, ...datos };
+          })()
+        : null;
+    return { categoria, top, totalCategoria };
   });
-  // Mismos datos que arriba, pero ordenados de más a menos vendido (no por
-  // tamaño del huevo) para el gráfico de barras.
-  const rankingPorCategoria = [...masVendidoPorCategoria].sort(
-    (a, b) => (b.top?.cantidad ?? 0) - (a.top?.cantidad ?? 0)
-  );
-  const maxCantidadCategoria = Math.max(
-    1,
-    ...masVendidoPorCategoria.map((m) => m.top?.cantidad ?? 0)
+  // Cuánto suman TODAS las categorías juntas, para poder calcular qué
+  // porcentaje del total representa cada una.
+  const granTotalCategorias = totalesPorCategoria.reduce((s, c) => s + c.totalCategoria, 0);
+  // Mismos datos, pero ordenados de más a menos vendido (no por tamaño del
+  // huevo) para el gráfico de barras.
+  const rankingPorCategoria = [...totalesPorCategoria].sort(
+    (a, b) => b.totalCategoria - a.totalCategoria
   );
 
   return (
@@ -411,14 +422,14 @@ export default async function ReportesPage({
         <div className="rounded-2xl border border-stone-200 bg-white p-4">
           <p className="mb-3 text-sm font-medium text-stone-700">Más vendido por categoría</p>
           <p className="mb-3 text-xs text-stone-400">
-            El producto que más se vendió dentro de cada categoría, ordenado de más a menos
+            Total vendido por categoría (todos sus formatos sumados), con el % que representa
+            del total y el producto que más se vendió dentro de ella — ordenado de más a menos
             vendido
           </p>
           <div className="space-y-3">
-            {rankingPorCategoria.map(({ categoria, top }) => {
-              const cantidad = top?.cantidad ?? 0;
-              const porcentaje =
-                maxCantidadCategoria > 0 ? (cantidad / maxCantidadCategoria) * 100 : 0;
+            {rankingPorCategoria.map(({ categoria, top, totalCategoria }) => {
+              const porcentajeDelTotal =
+                granTotalCategorias > 0 ? (totalCategoria / granTotalCategorias) * 100 : 0;
               return (
                 <div key={categoria}>
                   <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
@@ -427,8 +438,8 @@ export default async function ReportesPage({
                         {NOMBRES_CATEGORIA[categoria]}
                       </span>{" "}
                       {top ? (
-                        <span className="text-stone-700">
-                          {top.nombre}{" "}
+                        <span className="text-stone-500">
+                          más vendido: {top.nombre}{" "}
                           <span className="text-xs text-stone-400">
                             ({NOMBRES_FORMATO[top.formato]})
                           </span>
@@ -437,14 +448,21 @@ export default async function ReportesPage({
                         <span className="text-stone-400">Sin ventas en el período</span>
                       )}
                     </span>
-                    <span className="shrink-0 font-medium text-stone-800">
-                      {cantidad > 0 ? `${cantidad} un.` : "—"}
+                    <span className="shrink-0 text-right">
+                      <span className="font-medium text-stone-800">
+                        {totalCategoria > 0 ? `${totalCategoria} un.` : "—"}
+                      </span>
+                      {totalCategoria > 0 && (
+                        <span className="ml-1.5 text-xs text-stone-400">
+                          ({porcentajeDelTotal.toFixed(0)}%)
+                        </span>
+                      )}
                     </span>
                   </div>
                   <div className="h-2.5 w-full overflow-hidden rounded-full bg-stone-100">
                     <div
                       className="h-full rounded-full bg-amber-600"
-                      style={{ width: `${porcentaje}%` }}
+                      style={{ width: `${porcentajeDelTotal}%` }}
                     />
                   </div>
                 </div>
