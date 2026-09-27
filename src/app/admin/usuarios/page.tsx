@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireRol } from "@/lib/roles";
 import RolSelector from "@/components/RolSelector";
+import ActivoToggle from "@/components/ActivoToggle";
+import CrearUsuarioForm from "@/components/CrearUsuarioForm";
 import type { Rol } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
@@ -22,11 +24,14 @@ export default async function UsuariosPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-lg font-semibold text-stone-800">Usuarios</h1>
-        <p className="text-sm text-stone-500">
-          Perfil de acceso de cada persona con cuenta en el sistema
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-semibold text-stone-800">Usuarios</h1>
+          <p className="text-sm text-stone-500">
+            Perfil de acceso de cada persona con cuenta en el sistema
+          </p>
+        </div>
+        <CrearUsuarioForm />
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
@@ -35,6 +40,7 @@ export default async function UsuariosPage() {
             <tr>
               <th className="px-4 py-3">Nombre</th>
               <th className="px-4 py-3">Perfil</th>
+              <th className="px-4 py-3">Estado</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
@@ -50,15 +56,18 @@ export default async function UsuariosPage() {
                   <td className="px-4 py-3">
                     <RolSelector vendedorId={v.id} rol={v.rol as Rol} disabled={esUnoMismo} />
                   </td>
+                  <td className="px-4 py-3">
+                    <ActivoToggle vendedorId={v.id} activo={v.activo} disabled={esUnoMismo} />
+                  </td>
                   <td className="px-4 py-3 text-right text-xs text-stone-400">
-                    {esUnoMismo ? "No puedes cambiar tu propio perfil" : ""}
+                    {esUnoMismo ? "No puedes editar tu propia cuenta" : ""}
                   </td>
                 </tr>
               );
             })}
             {lista.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-4 py-8 text-center text-stone-400">
+                <td colSpan={4} className="px-4 py-8 text-center text-stone-400">
                   Aún no hay usuarios registrados
                 </td>
               </tr>
@@ -68,9 +77,8 @@ export default async function UsuariosPage() {
       </div>
 
       <p className="text-xs text-stone-400">
-        Cuando agregas a alguien nuevo en Supabase (Authentication → Users), se le crea
-        automáticamente una cuenta interna con perfil &quot;Vendedor&quot; por defecto — cámbiaselo
-        aquí si le corresponde otro perfil.
+        Una persona dada de baja no puede volver a entrar al sistema hasta que se le dé de alta
+        de nuevo.
       </p>
     </div>
   );
