@@ -176,15 +176,15 @@ export default async function MortandadPage({
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="text-xs uppercase text-stone-500">
-                  <th className="pb-2 font-medium">Día</th>
-                  <th className="pb-2 text-right font-medium">Cantidad</th>
+                  <th className="pb-2 pr-4 font-medium">Día</th>
+                  <th className="pb-2 pr-4 text-right font-medium">Cantidad</th>
                   <th className="pb-2 font-medium">Causa</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
                 {lista.map((e) => (
                   <tr key={e.id}>
-                    <td className="py-2 text-stone-700">
+                    <td className="py-2 pr-4 text-stone-700">
                       {formatFecha(e.fecha)}
                       {e.fecha === hoy && (
                         <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
@@ -192,7 +192,7 @@ export default async function MortandadPage({
                         </span>
                       )}
                     </td>
-                    <td className="py-2 text-right font-semibold text-red-600">
+                    <td className="py-2 pr-4 text-right font-semibold text-red-600">
                       {e.cantidad} unidades
                     </td>
                     <td className="py-2 text-stone-600">{e.causa ?? "—"}</td>
