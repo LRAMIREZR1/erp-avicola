@@ -7,6 +7,7 @@ import BotonRegistrarProduccion from "@/components/BotonRegistrarProduccion";
 import {
   NOMBRES_CATEGORIA,
   NOMBRES_FORMATO,
+  esBandeja,
   type Categoria,
   type Formato,
   type Producto,
@@ -104,8 +105,8 @@ export default async function RegistrarProduccionPage({
     if (diff !== 0) return diff;
     return a.nombre.localeCompare(b.nombre);
   });
-  const bandejas = todos.filter((p) => p.formato === "bandeja_30");
-  const cajas = todos.filter((p) => p.formato !== "bandeja_30");
+  const bandejas = todos.filter((p) => esBandeja(p.formato as Formato));
+  const cajas = todos.filter((p) => !esBandeja(p.formato as Formato));
 
   return (
     <div className="space-y-6">
@@ -153,12 +154,12 @@ export default async function RegistrarProduccionPage({
         )}
 
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-stone-700">Bandejas (30 un.)</h2>
+          <h2 className="text-sm font-semibold text-stone-700">Bandejas</h2>
           <TablaProduccion productos={bandejas} mostrarFormato={false} />
         </div>
 
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-stone-700">Cajas (120 / 180 un.)</h2>
+          <h2 className="text-sm font-semibold text-stone-700">Cajas</h2>
           <TablaProduccion productos={cajas} mostrarFormato={true} />
         </div>
 
