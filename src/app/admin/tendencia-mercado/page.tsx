@@ -3,7 +3,7 @@ import { requireRol } from "@/lib/roles";
 import GraficoEvolucionPrecios, {
   type SerieProducto,
 } from "@/components/GraficoEvolucionPrecios";
-import type { Categoria, Formato } from "@/lib/supabase/types";
+import { esBandeja, type Categoria, type Formato } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
 
@@ -83,11 +83,11 @@ export default async function TendenciaMercadoPage() {
   const semanasGrafico = [...semanasDisponibles].slice(0, MAX_SEMANAS_GRAFICO).reverse(); // ascendente
 
   const seriesBandejas = construirSeries(
-    filas.filter((f) => f.productos?.formato === "bandeja_30"),
+    filas.filter((f) => (f.productos ? esBandeja(f.productos.formato) : false)),
     semanasGrafico
   );
   const seriesCajas = construirSeries(
-    filas.filter((f) => f.productos?.formato !== "bandeja_30"),
+    filas.filter((f) => (f.productos ? !esBandeja(f.productos.formato) : true)),
     semanasGrafico
   );
 
@@ -112,7 +112,7 @@ export default async function TendenciaMercadoPage() {
       ) : (
         <div className="rounded-2xl border border-stone-200 bg-white p-4">
           <GraficoEvolucionPrecios
-            titulo="Bandejas (30 unidades)"
+            titulo="Bandejas"
             semanas={semanasGrafico}
             series={seriesBandejas}
           />
