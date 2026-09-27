@@ -9,8 +9,8 @@ export interface StockChartDatum {
 }
 
 const SERIES = [
-  { key: "bandejas" as const, label: "Bandejas (30 un.)", color: "#2a78d6" },
-  { key: "cajas" as const, label: "Cajas (120/180 un.)", color: "#eb6834" },
+  { key: "bandejas" as const, label: "Bandejas", color: "#2a78d6" },
+  { key: "cajas" as const, label: "Cajas", color: "#eb6834" },
 ];
 
 function nicerMax(value: number) {
