@@ -16,11 +16,12 @@ import BotonAplicarAjuste from "@/components/BotonAplicarAjuste";
 
 // Orden por tamaño del huevo, de mayor a menor — no alfabético.
 const ORDEN_CATEGORIA: Record<Categoria, number> = {
-  super_extra: 0,
-  extra: 1,
-  primera: 2,
-  segunda: 3,
-  tercera: 4,
+  jumbo: 0,
+  super_extra: 1,
+  extra: 2,
+  primera: 3,
+  segunda: 4,
+  tercera: 5,
 };
 
 function TablaProductos({
@@ -206,8 +207,8 @@ export default async function ProductosPage() {
         <div>
           <h1 className="text-lg font-semibold text-stone-800">Productos y stock</h1>
           <p className="text-sm text-stone-500">
-            Categorías Super Extra / Extra / Primera / Segunda / Tercera, divididas por formato de
-            venta
+            Categorías Jumbo / Super Extra / Extra / Primera / Segunda / Tercera, divididas por
+            formato de venta
           </p>
           <p className="text-xs text-stone-400">
             Al ajustar stock, elige &quot;Merma&quot; cuando la pérdida es por huevos rotos —
