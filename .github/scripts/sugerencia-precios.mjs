@@ -12,10 +12,11 @@
 // Nota IVA: el precio mayorista de Yemita es Neto (sin IVA), mientras que
 // nuestros precios propios (precio_actual) siempre incluyen IVA. Para que la
 // sugerencia sea comparable con lo que de verdad cobramos, a los formatos que
-// se calculan directo desde Yemita (caja_120, caja_180) se les agrega el 19%
-// de IVA antes de aplicar el margen. El formato bandeja_30 no necesita este
-// ajuste aparte porque ya se calibra contra el precio retail de Jumbo, que en
-// Chile siempre se exhibe al público con IVA incluido.
+// se calculan directo desde Yemita (caja_100, caja_120, caja_180 sin dato de
+// competencia) se les agrega el 19% de IVA antes de aplicar el margen. Los
+// formatos bandeja_* (bandeja_20, bandeja_30) no necesitan este ajuste aparte
+// porque ya se calibran contra el precio retail de Jumbo, que en Chile
+// siempre se exhibe al público con IVA incluido.
 //
 // Huevos Santa Marta (huevo Color, igual que el nuestro) vende exactamente en
 // Caja de 6 Bandejas de 30 = 180 unidades — el mismo formato que usamos para
@@ -213,8 +214,18 @@ function categoriaReferenciaYemita(categoria) {
   return categoria === "tercera" ? "segunda" : categoria;
 }
 
+// Cualquier formato que empiece con "bandeja_" cuenta como bandeja (no solo
+// bandeja_30) — mismo criterio que esBandeja() en src/lib/supabase/types.ts,
+// repetido acá porque este script corre aparte (GitHub Actions, JS plano sin
+// el resto de la app).
+function esBandeja(formato) {
+  return formato.startsWith("bandeja_");
+}
+
 function unidadesPorFormato(formato) {
+  if (formato === "bandeja_20") return 20;
   if (formato === "bandeja_30") return 30;
+  if (formato === "caja_100") return 100;
   if (formato === "caja_120") return 120;
   return 180; // caja_180
 }
@@ -264,37 +275,44 @@ function calcularSugerencias(
     const precioSantaMarta = preciosSantaMarta[p.categoria] ?? null;
     const precioAgricovial = preciosAgricovial[p.categoria] ?? null;
 
-    if (p.formato === "bandeja_30") {
-      const retailEstimado = precioHuevo * 30 * ratioRetail * factorTercera;
+    if (esBandeja(p.formato)) {
+      // bandeja_20, bandeja_30 (o cualquier bandeja_* futura) — mismo método,
+      // escalado por la cantidad real de unidades del formato.
+      const retailEstimado = precioHuevo * unidades * ratioRetail * factorTercera;
       precioSugerido = retailEstimado * 0.88; // ~12% bajo el retail estimado
       metodo = "12% bajo el precio retail estimado (calibrado con Cintazul en Jumbo, ya incluye IVA)";
       referenciaFuente = "Cintazul/Jumbo (retail estimado)";
       referenciaValor = Math.round(retailEstimado);
-    } else if (p.formato === "caja_120") {
-      precioSugerido = precioHuevoConIva * 120 * factorTercera * 1.05;
-      metodo = "5% sobre el precio mayorista de Yemita + IVA (venta media)";
-      referenciaFuente = "Yemita + IVA";
-      referenciaValor = Math.round(precioHuevoConIva * 120 * factorTercera);
-    } else if (precioSantaMarta || precioAgricovial) {
-      // Mismo formato exacto (Caja 180, huevo Color) y precio ya con IVA en
-      // ambos — comparación directa, sin estimaciones. Si están los dos, se
-      // usa el promedio; si solo hay uno, se usa ese.
-      const referencias = [];
-      if (precioSantaMarta) referencias.push({ fuente: "Huevos Santa Marta", valor: precioSantaMarta });
-      if (precioAgricovial) referencias.push({ fuente: "Agricovial", valor: precioAgricovial });
-      const promedio = referencias.reduce((suma, r) => suma + r.valor, 0) / referencias.length;
+    } else if (p.formato === "caja_180") {
+      if (precioSantaMarta || precioAgricovial) {
+        // Mismo formato exacto (Caja 180, huevo Color) y precio ya con IVA en
+        // ambos — comparación directa, sin estimaciones. Si están los dos, se
+        // usa el promedio; si solo hay uno, se usa ese.
+        const referencias = [];
+        if (precioSantaMarta) referencias.push({ fuente: "Huevos Santa Marta", valor: precioSantaMarta });
+        if (precioAgricovial) referencias.push({ fuente: "Agricovial", valor: precioAgricovial });
+        const promedio = referencias.reduce((suma, r) => suma + r.valor, 0) / referencias.length;
 
-      precioSugerido = promedio * 0.97; // 3% bajo el promedio de competencia
-      const nombresFuentes = referencias.map((r) => r.fuente).join(" y ");
-      metodo = `3% bajo ${nombresFuentes} (misma Caja 180, huevo color, precio ya con IVA)`;
-      referenciaFuente = referencias.length > 1 ? `Promedio: ${nombresFuentes}` : nombresFuentes;
-      referenciaValor = Math.round(promedio);
+        precioSugerido = promedio * 0.97; // 3% bajo el promedio de competencia
+        const nombresFuentes = referencias.map((r) => r.fuente).join(" y ");
+        metodo = `3% bajo ${nombresFuentes} (misma Caja 180, huevo color, precio ya con IVA)`;
+        referenciaFuente = referencias.length > 1 ? `Promedio: ${nombresFuentes}` : nombresFuentes;
+        referenciaValor = Math.round(promedio);
+      } else {
+        precioSugerido = precioHuevoConIva * unidades * factorTercera * 0.97;
+        metodo =
+          "3% bajo el precio mayorista de Yemita + IVA (sin dato de Santa Marta ni Agricovial esta semana para esta categoría)";
+        referenciaFuente = "Yemita + IVA";
+        referenciaValor = Math.round(precioYemitaConIvaEquivalente);
+      }
     } else {
-      precioSugerido = precioHuevoConIva * 180 * factorTercera * 0.97;
-      metodo =
-        "3% bajo el precio mayorista de Yemita + IVA (sin dato de Santa Marta ni Agricovial esta semana para esta categoría)";
+      // caja_100, caja_120 (o cualquier otra caja_* futura sin referencia
+      // directa propia) — mismo método, escalado por la cantidad real de
+      // unidades del formato.
+      precioSugerido = precioHuevoConIva * unidades * factorTercera * 1.05;
+      metodo = "5% sobre el precio mayorista de Yemita + IVA (venta por caja)";
       referenciaFuente = "Yemita + IVA";
-      referenciaValor = Math.round(precioYemitaConIvaEquivalente);
+      referenciaValor = Math.round(precioHuevoConIva * unidades * factorTercera);
     }
 
     precioSugerido = Math.round(precioSugerido / 50) * 50;
@@ -372,12 +390,8 @@ async function enviarCorreo(productos, sugerencias) {
         (ORDEN_CATEGORIA[a.p.categoria] ?? 99) -
         (ORDEN_CATEGORIA[b.p.categoria] ?? 99)
     );
-  const bandejas = ordenPorCategoria(
-    conProducto.filter(({ p }) => p.formato === "bandeja_30")
-  );
-  const cajas = ordenPorCategoria(
-    conProducto.filter(({ p }) => p.formato !== "bandeja_30")
-  );
+  const bandejas = ordenPorCategoria(conProducto.filter(({ p }) => esBandeja(p.formato)));
+  const cajas = ordenPorCategoria(conProducto.filter(({ p }) => !esBandeja(p.formato)));
 
   const filaHtml = (s, p) => {
     const diff = s.precio_sugerido - s.precio_actual;
@@ -425,7 +439,7 @@ async function enviarCorreo(productos, sugerencias) {
       solo una sugerencia — nada se cambia solo en el sistema, tú decides si ajustar cada precio
       desde "Productos y stock".
     </p>
-    ${tablaSeccion("Bandejas (30 unidades)", bandejas)}
+    ${tablaSeccion("Bandejas", bandejas)}
     ${tablaSeccion("Cajas", cajas)}
     <p style="font-family:sans-serif;color:#a8a29e;font-size:12px;margin-top:16px">
       Detalle completo en el sistema, en "Precio de mercado del huevo".
