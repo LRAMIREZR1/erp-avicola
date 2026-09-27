@@ -14,6 +14,7 @@ import {
   NOMBRES_REGION_ODEPA,
   NOMBRES_UNIDAD_PRECIO,
   NOMBRES_ZONA,
+  esBandeja,
   type Categoria,
   type Formato,
   type RegionOdepa,
@@ -140,10 +141,10 @@ export default async function PrecioMercadoPage({
   // siempre en el mismo orden de calidad: Jumbo, Super Extra, Extra,
   // Primera, Segunda, Tercera.
   const sugerenciasBandejas = ordenarPorCategoria(
-    sugerencias.filter((s) => s.productos?.formato === "bandeja_30")
+    sugerencias.filter((s) => (s.productos ? esBandeja(s.productos.formato) : false))
   );
   const sugerenciasCajas = ordenarPorCategoria(
-    sugerencias.filter((s) => s.productos?.formato !== "bandeja_30")
+    sugerencias.filter((s) => (s.productos ? !esBandeja(s.productos.formato) : true))
   );
 
   // Último precio registrado por zona (la lista ya viene ordenada del más
@@ -223,7 +224,7 @@ export default async function PrecioMercadoPage({
             solo una referencia: nada se cambia solo, tú decides si ajustar el precio desde
             &quot;Productos y stock&quot;.
           </p>
-          <TablaSugerencias titulo="Bandejas (30 unidades)" lista={sugerenciasBandejas} />
+          <TablaSugerencias titulo="Bandejas" lista={sugerenciasBandejas} />
           <TablaSugerencias titulo="Cajas" lista={sugerenciasCajas} />
         </div>
       )}
