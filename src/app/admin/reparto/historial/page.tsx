@@ -160,7 +160,7 @@ export default async function HistorialRepartoPage({
             </p>
 
             <div className="space-y-3">
-              <h2 className="text-sm font-semibold text-stone-700">Cajas (120 / 180 un.)</h2>
+              <h2 className="text-sm font-semibold text-stone-700">Cajas</h2>
               <TablaConsolidado
                 items={consolidadoCajas}
                 etiquetaCantidad="Cantidad entregada"
@@ -169,7 +169,7 @@ export default async function HistorialRepartoPage({
             </div>
 
             <div className="mt-5 space-y-3">
-              <h2 className="text-sm font-semibold text-stone-700">Bandejas (30 un.)</h2>
+              <h2 className="text-sm font-semibold text-stone-700">Bandejas</h2>
               <TablaConsolidado
                 items={consolidadoBandejas}
                 etiquetaCantidad="Cantidad entregada"
