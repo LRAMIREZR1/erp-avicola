@@ -15,14 +15,15 @@ interface FilaSugerencia {
   productos: { nombre: string; formato: Formato; categoria: Categoria } | null;
 }
 
-// Mismo orden de calidad que en "Precio de mercado": Super Extra, Extra,
-// Primera, Segunda, Tercera.
+// Mismo orden de calidad que en "Precio de mercado": Jumbo, Super Extra,
+// Extra, Primera, Segunda, Tercera.
 const ORDEN_CATEGORIA: Record<Categoria, number> = {
-  super_extra: 0,
-  extra: 1,
-  primera: 2,
-  segunda: 3,
-  tercera: 4,
+  jumbo: 0,
+  super_extra: 1,
+  extra: 2,
+  primera: 3,
+  segunda: 4,
+  tercera: 5,
 };
 
 // Tope de semanas que se muestran en el gráfico, para que no se sature de
