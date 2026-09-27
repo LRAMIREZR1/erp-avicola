@@ -39,7 +39,7 @@ export default async function HistorialRepartoPage({
 }: {
   searchParams: Promise<{ fecha?: string }>;
 }) {
-  const rol = await requireRol(["administrador", "vendedor", "encargado_bodega", "repartidor"]);
+  const rol = await requireRol(["administrador", "vendedor", "repartidor"]);
   const { fecha: fechaParam } = await searchParams;
   const hoy = hoyChile();
   const fecha = fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam) ? fechaParam : hoy;
