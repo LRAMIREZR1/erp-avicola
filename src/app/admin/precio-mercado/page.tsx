@@ -56,14 +56,15 @@ interface SugerenciaPrecio {
   productos: { nombre: string; formato: Formato; categoria: Categoria } | null;
 }
 
-// Orden de calidad para mostrar siempre igual: Super Extra, Extra, Primera,
-// Segunda, Tercera.
+// Orden de calidad para mostrar siempre igual: Jumbo, Super Extra, Extra,
+// Primera, Segunda, Tercera.
 const ORDEN_CATEGORIA: Record<Categoria, number> = {
-  super_extra: 0,
-  extra: 1,
-  primera: 2,
-  segunda: 3,
-  tercera: 4,
+  jumbo: 0,
+  super_extra: 1,
+  extra: 2,
+  primera: 3,
+  segunda: 4,
+  tercera: 5,
 };
 
 function ordenarPorCategoria(lista: SugerenciaPrecio[]) {
@@ -136,8 +137,8 @@ export default async function PrecioMercadoPage({
   );
   // Separadas en dos bloques — Bandejas (venta al detalle) y Cajas (venta
   // grande, B2B) — en vez de una sola lista mezclada. Dentro de cada bloque,
-  // siempre en el mismo orden de calidad: Super Extra, Extra, Primera,
-  // Segunda, Tercera.
+  // siempre en el mismo orden de calidad: Jumbo, Super Extra, Extra,
+  // Primera, Segunda, Tercera.
   const sugerenciasBandejas = ordenarPorCategoria(
     sugerencias.filter((s) => s.productos?.formato === "bandeja_30")
   );
