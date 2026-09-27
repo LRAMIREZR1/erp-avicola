@@ -8,8 +8,10 @@ import { requireRol } from "@/lib/roles";
 import {
   NOMBRES_CATEGORIA,
   NOMBRES_ESTADO,
+  esBandeja,
   type Categoria,
   type EstadoPedido,
+  type Formato,
 } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
@@ -114,8 +116,8 @@ export default async function DashboardPage() {
   const totalHoy = (pedidosHoy.data ?? []).reduce((acc, p) => acc + Number(p.total), 0);
   const stockProductos = stockBajo.data ?? [];
   const productosStockBajo = stockProductos.filter((p) => p.stock_actual <= p.stock_minimo);
-  const bandejasStockBajo = productosStockBajo.filter((p) => p.formato === "bandeja_30");
-  const cajasStockBajo = productosStockBajo.filter((p) => p.formato !== "bandeja_30");
+  const bandejasStockBajo = productosStockBajo.filter((p) => esBandeja(p.formato as Formato));
+  const cajasStockBajo = productosStockBajo.filter((p) => !esBandeja(p.formato as Formato));
 
   const stockOrdenado = [...stockProductos].sort(
     (a, b) => ORDEN_CATEGORIA[a.categoria as Categoria] - ORDEN_CATEGORIA[b.categoria as Categoria]
@@ -129,7 +131,7 @@ export default async function DashboardPage() {
       bandejas: 0,
       cajas: 0,
     };
-    if (p.formato === "bandeja_30") {
+    if (esBandeja(p.formato as Formato)) {
       actual.bandejas += p.stock_actual;
     } else {
       actual.cajas += p.stock_actual;
@@ -149,7 +151,7 @@ export default async function DashboardPage() {
     if (!producto) continue;
     const nombreCategoria = NOMBRES_CATEGORIA[producto.categoria];
     const actual = reservadoPorCategoria.get(nombreCategoria) ?? { bandejas: 0, cajas: 0 };
-    if (producto.formato === "bandeja_30") {
+    if (esBandeja(producto.formato as Formato)) {
       actual.bandejas += item.cantidad;
     } else {
       actual.cajas += item.cantidad;
