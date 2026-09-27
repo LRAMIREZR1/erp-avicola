@@ -4,6 +4,7 @@ import { formatCLP } from "@/lib/format";
 import {
   NOMBRES_CATEGORIA,
   NOMBRES_FORMATO,
+  esBandeja,
   type Categoria,
   type Formato,
   type Producto,
@@ -152,8 +153,8 @@ export default async function ProductosPage() {
     if (diff !== 0) return diff;
     return a.nombre.localeCompare(b.nombre);
   });
-  const bandejas = todos.filter((p) => p.formato === "bandeja_30");
-  const cajas = todos.filter((p) => p.formato !== "bandeja_30");
+  const bandejas = todos.filter((p) => esBandeja(p.formato as Formato));
+  const cajas = todos.filter((p) => !esBandeja(p.formato as Formato));
 
   // Disponible (stock_actual) agrupado por categoría, igual que en el
   // Resumen, para poder sumarle lo reservado y armar el gráfico de físico.
@@ -161,7 +162,7 @@ export default async function ProductosPage() {
   for (const p of todos) {
     const nombreCategoria = NOMBRES_CATEGORIA[p.categoria as Categoria];
     const actual = disponiblePorCategoria.get(nombreCategoria) ?? { bandejas: 0, cajas: 0 };
-    if (p.formato === "bandeja_30") {
+    if (esBandeja(p.formato as Formato)) {
       actual.bandejas += p.stock_actual;
     } else {
       actual.cajas += p.stock_actual;
@@ -180,7 +181,7 @@ export default async function ProductosPage() {
     if (!producto) continue;
     const nombreCategoria = NOMBRES_CATEGORIA[producto.categoria];
     const actual = reservadoPorCategoria.get(nombreCategoria) ?? { bandejas: 0, cajas: 0 };
-    if (producto.formato === "bandeja_30") {
+    if (esBandeja(producto.formato as Formato)) {
       actual.bandejas += item.cantidad;
     } else {
       actual.cajas += item.cantidad;
@@ -252,12 +253,12 @@ export default async function ProductosPage() {
       )}
 
       <div className="space-y-3">
-        <h2 className="text-sm font-semibold text-stone-700">Bandejas (30 un.)</h2>
+        <h2 className="text-sm font-semibold text-stone-700">Bandejas</h2>
         <TablaProductos productos={bandejas} mostrarFormato={false} rol={rol} />
       </div>
 
       <div className="space-y-3">
-        <h2 className="text-sm font-semibold text-stone-700">Cajas (120 / 180 un.)</h2>
+        <h2 className="text-sm font-semibold text-stone-700">Cajas</h2>
         <TablaProductos productos={cajas} mostrarFormato={true} rol={rol} />
       </div>
     </div>
