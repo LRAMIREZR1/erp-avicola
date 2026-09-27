@@ -16,11 +16,12 @@ export const dynamic = "force-dynamic";
 
 // Orden por tamaño del huevo, de mayor a menor — no alfabético.
 const ORDEN_CATEGORIA: Record<Categoria, number> = {
-  super_extra: 0,
-  extra: 1,
-  primera: 2,
-  segunda: 3,
-  tercera: 4,
+  jumbo: 0,
+  super_extra: 1,
+  extra: 2,
+  primera: 3,
+  segunda: 4,
+  tercera: 5,
 };
 
 interface ProductoStockBajo {
