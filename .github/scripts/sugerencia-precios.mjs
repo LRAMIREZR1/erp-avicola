@@ -192,13 +192,19 @@ const RATIO_RETAIL_RESPALDO = 2.7; // observado manualmente, sept. 2026
 const IVA = 0.19; // IVA Chile — Yemita cotiza Neto, nuestros precios son con IVA
 
 // Orden de calidad usado para mostrar los reportes (email y página) siempre
-// en el mismo orden, de mejor a peor categoría.
+// en el mismo orden, de mejor a peor categoría. "jumbo" no tiene fuente de
+// comparación en ninguno de los sitios que se scrapean más abajo, así que
+// calcularSugerencias() simplemente no genera sugerencia para esos
+// productos (queda igual que si faltara el dato una semana) — este orden
+// solo importa por si algún día se agrega una referencia para esa
+// categoría.
 const ORDEN_CATEGORIA = {
-  super_extra: 0,
-  extra: 1,
-  primera: 2,
-  segunda: 3,
-  tercera: 4,
+  jumbo: 0,
+  super_extra: 1,
+  extra: 2,
+  primera: 3,
+  segunda: 4,
+  tercera: 5,
 };
 
 function categoriaReferenciaYemita(categoria) {
@@ -358,7 +364,7 @@ async function enviarCorreo(productos, sugerencias) {
   // El reporte va separado en dos bloques — Bandejas (venta más chica, al
   // detalle) y Cajas (venta grande, B2B) — en vez de una sola lista
   // mezclada, para que sea más fácil de leer de un vistazo. Dentro de cada
-  // bloque, siempre en el mismo orden de calidad: Super Extra, Extra,
+  // bloque, siempre en el mismo orden de calidad: Jumbo, Super Extra, Extra,
   // Primera, Segunda, Tercera.
   const ordenPorCategoria = (lista) =>
     [...lista].sort(
