@@ -1,5 +1,12 @@
 export type Categoria = "jumbo" | "segunda" | "primera" | "extra" | "tercera" | "super_extra";
-export type Formato = "bandeja_30" | "caja_120" | "caja_180";
+export type Formato = "bandeja_30" | "caja_120" | "caja_180" | "bandeja_20" | "caja_100";
+
+// Cualquier producto cuyo formato empiece con "bandeja_" cuenta como
+// bandeja (no solo bandeja_30) — se usa para separar Bandejas de Cajas en
+// las pantallas que muestran ambos por separado.
+export function esBandeja(formato: Formato) {
+  return formato.startsWith("bandeja_");
+}
 export type TipoCliente = "b2b" | "minorista";
 export type EstadoPedido =
   | "pendiente"
@@ -118,7 +125,9 @@ export const NOMBRES_CATEGORIA: Record<Categoria, string> = {
 };
 
 export const NOMBRES_FORMATO: Record<Formato, string> = {
+  bandeja_20: "Bandeja de 20",
   bandeja_30: "Bandeja de 30",
+  caja_100: "Caja de 100",
   caja_120: "Caja de 120",
   caja_180: "Caja de 180",
 };
