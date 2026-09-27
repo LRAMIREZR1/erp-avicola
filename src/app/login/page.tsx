@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const inactivo = searchParams.get("inactivo") === "1";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +28,7 @@ export default function LoginPage() {
       return;
     }
 
-    // No se vuelve a habilitar el botón aquí a propósito: debe seguir
+    // No se vuelve a habilitar el botón acá a propósito: debe seguir
     // diciendo "Ingresando..." mientras el router navega a /admin, en vez de
     // volver a "Ingresar" por un instante y confundir al que hizo clic.
     router.push("/admin");
@@ -47,6 +49,12 @@ export default function LoginPage() {
           />
         </h1>
         <p className="mb-6 text-center text-sm text-stone-500">Panel de gestión interno</p>
+
+        {inactivo && (
+          <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-center text-sm text-amber-700">
+            Tu cuenta fue dada de baja. Contacta a un administrador si crees que es un error.
+          </p>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -84,5 +92,13 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }
