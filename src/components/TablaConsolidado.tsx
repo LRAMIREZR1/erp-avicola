@@ -15,9 +15,11 @@ export interface ItemConsolidado {
 
 // Compartido entre "Carga para reparto" (lo que hay que cargar hoy) y el
 // historial de repartos (lo que se entregó un día ya pasado) — misma tabla,
-// solo cambia de dónde viene la lista de items.
+// solo cambia de dónde viene la lista de items. Cualquier formato que
+// empiece con "caja_" cuenta como caja (no solo caja_120/caja_180) — así
+// no hay que tocar esto cada vez que se agrega un formato nuevo.
 export function esCaja(formato: string) {
-  return formato !== "bandeja_30";
+  return formato.startsWith("caja_");
 }
 
 export default function TablaConsolidado({
