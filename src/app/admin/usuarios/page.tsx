@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireRol } from "@/lib/roles";
 import RolSelector from "@/components/RolSelector";
 import ActivoToggle from "@/components/ActivoToggle";
+import CambiarPasswordButton from "@/components/CambiarPasswordButton";
 import CrearUsuarioForm from "@/components/CrearUsuarioForm";
 import type { Rol } from "@/lib/supabase/types";
 
@@ -41,6 +42,7 @@ export default async function UsuariosPage() {
               <th className="px-4 py-3">Nombre</th>
               <th className="px-4 py-3">Perfil</th>
               <th className="px-4 py-3">Estado</th>
+              <th className="px-4 py-3">Contraseña</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
@@ -59,15 +61,18 @@ export default async function UsuariosPage() {
                   <td className="px-4 py-3">
                     <ActivoToggle vendedorId={v.id} activo={v.activo} disabled={esUnoMismo} />
                   </td>
+                  <td className="px-4 py-3">
+                    <CambiarPasswordButton vendedorId={v.id} />
+                  </td>
                   <td className="px-4 py-3 text-right text-xs text-stone-400">
-                    {esUnoMismo ? "No puedes editar tu propia cuenta" : ""}
+                    {esUnoMismo ? "No puedes cambiar tu perfil ni tu estado" : ""}
                   </td>
                 </tr>
               );
             })}
             {lista.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-stone-400">
+                <td colSpan={5} className="px-4 py-8 text-center text-stone-400">
                   Aún no hay usuarios registrados
                 </td>
               </tr>
