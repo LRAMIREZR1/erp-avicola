@@ -18,11 +18,12 @@ const DESCUENTO_TRAMO_10_O_MAS = 0.036;
 
 // Orden de calidad, de mayor a menor — igual que en el resto del sistema.
 const ORDEN_CATEGORIA: Record<Categoria, number> = {
-  super_extra: 0,
-  extra: 1,
-  primera: 2,
-  segunda: 3,
-  tercera: 4,
+  jumbo: 0,
+  super_extra: 1,
+  extra: 2,
+  primera: 3,
+  segunda: 4,
+  tercera: 5,
 };
 
 // Los precios de lista son montos redondos (miles), pero un 1,9% o 3,6% de
