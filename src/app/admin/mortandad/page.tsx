@@ -38,17 +38,22 @@ export default async function MortandadPage({
     supabase
       .from("mortandad_gallinas")
       .select("id, fecha, cantidad, causa")
-      .gte("fecha", haceDiasFecha(13))
       .order("fecha", { ascending: false })
       .order("created_at", { ascending: false }),
   ]);
 
+  // La lista completa se muestra entera en el historial; las tarjetas de
+  // arriba solo resumen "hoy" y "últimos 14 días" filtrando sobre esa misma
+  // lista, sin pedirle otra consulta a la base de datos.
   const lista = (entradas ?? []) as MortandadEntry[];
   const gallinasActivas = plantel?.cantidad_actual ?? 0;
+  const hace14Dias = haceDiasFecha(13);
   const muertasHoy = lista
     .filter((e) => e.fecha === hoy)
     .reduce((acc, e) => acc + e.cantidad, 0);
-  const muertas14Dias = lista.reduce((acc, e) => acc + e.cantidad, 0);
+  const muertas14Dias = lista
+    .filter((e) => e.fecha >= hace14Dias)
+    .reduce((acc, e) => acc + e.cantidad, 0);
 
   return (
     <div className="space-y-6">
@@ -159,10 +164,12 @@ export default async function MortandadPage({
       </div>
 
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
-        <p className="mb-3 text-sm font-medium text-stone-700">Historial — últimos 14 días</p>
+        <p className="mb-3 text-sm font-medium text-stone-700">
+          Historial completo ({lista.length} registro{lista.length === 1 ? "" : "s"})
+        </p>
         {lista.length === 0 ? (
           <p className="py-4 text-center text-sm text-stone-400">
-            Sin mortandad registrada en este período
+            Sin mortandad registrada todavía
           </p>
         ) : (
           <div className="overflow-x-auto">
