@@ -53,7 +53,7 @@ export default async function PrecioMayoristaPage() {
     .from("productos")
     .select("id, nombre, categoria, formato, precio")
     .eq("activo", true)
-    .in("formato", ["caja_120", "caja_180"])
+    .in("formato", ["caja_100", "caja_120", "caja_180"])
     .order("precio", { ascending: false });
 
   const productos = ((data ?? []) as ProductoCaja[]).sort(
