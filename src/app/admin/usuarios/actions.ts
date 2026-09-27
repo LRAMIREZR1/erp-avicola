@@ -115,3 +115,35 @@ export async function crearUsuario(datos: {
   revalidatePath("/admin/usuarios");
   return { ok: true };
 }
+
+// Cambia la contraseña de cualquier usuario (incluido el propio admin que la
+// ejecuta) vía Admin API — no depende de que Supabase tenga el envío de
+// correos configurado, como sí lo necesitaría un "olvidé mi contraseña".
+export async function cambiarPasswordUsuario(
+  vendedorId: string,
+  password: string
+): Promise<{ error: string } | { ok: true }> {
+  "use server";
+  await requireRol(["administrador"]);
+
+  if (password.length < 6) {
+    return { error: "La contraseña debe tener al menos 6 caracteres." };
+  }
+
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Falta configurar la conexión de administración.",
+    };
+  }
+
+  const { error } = await admin.auth.admin.updateUserById(vendedorId, { password });
+
+  if (error) {
+    return { error: "No se pudo cambiar la contraseña: " + error.message };
+  }
+
+  return { ok: true };
+}
