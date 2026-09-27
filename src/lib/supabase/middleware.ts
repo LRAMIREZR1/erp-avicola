@@ -36,6 +36,25 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Una cuenta dada de baja ("activo = false" en vendedores) no debe poder
+  // seguir navegando el panel aunque su sesión siga válida — se cierra la
+  // sesión acá mismo y se manda a login con un aviso.
+  if (user && isAdminRoute) {
+    const { data: vendedor } = await supabase
+      .from("vendedores")
+      .select("activo")
+      .eq("id", user.id)
+      .single();
+
+    if (vendedor && vendedor.activo === false) {
+      await supabase.auth.signOut();
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.search = "?inactivo=1";
+      return NextResponse.redirect(url);
+    }
+  }
+
   if (user && isLoginRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/admin";
