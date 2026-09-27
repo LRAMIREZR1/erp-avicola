@@ -70,7 +70,7 @@ const SECCIONES: NavSeccion[] = [
       {
         href: "/admin/reparto",
         label: "Reparto",
-        roles: ["administrador", "vendedor", "encargado_bodega", "repartidor"],
+        roles: ["administrador", "vendedor", "repartidor"],
       },
     ],
   },
@@ -140,38 +140,4 @@ export default function NavLinks({ rol }: { rol: Rol }) {
             key={seccion.titulo ?? `seccion-${i}`}
             className={
               seccion.titulo
-                ? `flex flex-col gap-1 rounded-xl border p-2 ${seccion.caja}`
-                : "flex flex-col gap-1"
-            }
-          >
-            {seccion.titulo && (
-              <p
-                className={`px-1 pb-1 text-xs font-bold uppercase tracking-wide ${seccion.tituloColor}`}
-              >
-                {seccion.titulo}
-              </p>
-            )}
-            {links.map((link) => {
-              const active = link.href === hrefActivo;
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-                    active
-                      ? "bg-amber-700 text-white"
-                      : seccion.titulo
-                        ? "text-stone-700 hover:bg-white/60 hover:text-stone-900"
-                        : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
-          </div>
-        );
-      })}
-    </nav>
-  );
-}
+                ? `flex flex-col gap-1 rounded-xl border p-2
