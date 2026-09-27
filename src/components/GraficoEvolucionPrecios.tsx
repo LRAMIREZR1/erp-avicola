@@ -19,6 +19,7 @@ export interface SerieProducto {
 
 // Mismo color para la misma categoría siempre, en Bandejas y en Cajas.
 const COLOR_CATEGORIA: Record<Categoria, string> = {
+  jumbo: "#ca8a04",
   super_extra: "#a855f7",
   extra: "#f59e0b",
   primera: "#16a34a",
