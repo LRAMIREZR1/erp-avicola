@@ -11,11 +11,13 @@ export const dynamic = "force-dynamic";
 const MOTIVO_PRODUCCION = "Producción diaria";
 
 const HUEVOS_POR_FORMATO: Record<Formato, number> = {
+  bandeja_20: 20,
   bandeja_30: 30,
+  caja_100: 100,
   caja_120: 120,
   caja_180: 180,
 };
-const FORMATOS: Formato[] = ["bandeja_30", "caja_120", "caja_180"];
+const FORMATOS: Formato[] = ["bandeja_20", "bandeja_30", "caja_100", "caja_120", "caja_180"];
 const HORIZONTES = [7, 14, 30];
 
 function diasEntre(desde: string, hasta: string) {
@@ -24,7 +26,7 @@ function diasEntre(desde: string, hasta: string) {
 }
 
 function formatoVacio(): Record<Formato, number> {
-  return { bandeja_30: 0, caja_120: 0, caja_180: 0 };
+  return { bandeja_20: 0, bandeja_30: 0, caja_100: 0, caja_120: 0, caja_180: 0 };
 }
 
 type OrdenCliente = {
