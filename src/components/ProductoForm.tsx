@@ -40,7 +40,9 @@ export default function ProductoForm({ producto }: { producto?: Producto }) {
           defaultValue={producto?.formato ?? "bandeja_30"}
           className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
         >
+          <option value="bandeja_20">Bandeja de 20</option>
           <option value="bandeja_30">Bandeja de 30</option>
+          <option value="caja_100">Caja de 100</option>
           <option value="caja_120">Caja de 120</option>
           <option value="caja_180">Caja de 180</option>
         </select>
