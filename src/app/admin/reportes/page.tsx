@@ -8,11 +8,12 @@ import { NOMBRES_CATEGORIA, NOMBRES_FORMATO, type Categoria, type Formato } from
 
 // Orden por tamaño del huevo, de mayor a menor — no alfabético.
 const ORDEN_CATEGORIA: Record<Categoria, number> = {
-  super_extra: 0,
-  extra: 1,
-  primera: 2,
-  segunda: 3,
-  tercera: 4,
+  jumbo: 0,
+  super_extra: 1,
+  extra: 2,
+  primera: 3,
+  segunda: 4,
+  tercera: 5,
 };
 const CATEGORIAS_ORDENADAS = (Object.keys(ORDEN_CATEGORIA) as Categoria[]).sort(
   (a, b) => ORDEN_CATEGORIA[a] - ORDEN_CATEGORIA[b]
