@@ -1,4 +1,4 @@
-export type Categoria = "segunda" | "primera" | "extra" | "tercera" | "super_extra";
+export type Categoria = "jumbo" | "segunda" | "primera" | "extra" | "tercera" | "super_extra";
 export type Formato = "bandeja_30" | "caja_120" | "caja_180";
 export type TipoCliente = "b2b" | "minorista";
 export type EstadoPedido =
@@ -109,11 +109,12 @@ export interface MovimientoStock {
 }
 
 export const NOMBRES_CATEGORIA: Record<Categoria, string> = {
+  jumbo: "Jumbo",
   segunda: "Segunda",
   primera: "Primera",
   extra: "Extra",
   tercera: "Tercera",
-  super_extra: "Super Extra (Jumbo)",
+  super_extra: "Super Extra",
 };
 
 export const NOMBRES_FORMATO: Record<Formato, string> = {
