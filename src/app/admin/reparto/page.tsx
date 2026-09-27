@@ -216,14 +216,14 @@ export default async function RepartoPage() {
 
             <div className="space-y-3">
               <h2 className="text-sm font-semibold text-stone-700">
-                Cajas (120 / 180 un.) — {totalCajas} en total
+                Cajas — {totalCajas} en total
               </h2>
               <TablaConsolidado items={consolidadoCajas} />
             </div>
 
             <div className="mt-5 space-y-3">
               <h2 className="text-sm font-semibold text-stone-700">
-                Bandejas (30 un.) — {totalBandejas} en total
+                Bandejas — {totalBandejas} en total
               </h2>
               <TablaConsolidado items={consolidadoBandejas} />
             </div>
