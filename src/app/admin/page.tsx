@@ -5,7 +5,7 @@ import StatCard from "@/components/StatCard";
 import { type StockChartDatum } from "@/components/StockChart";
 import StockChartSimple, { type StockChartSimpleDatum } from "@/components/StockChartSimple";
 import StockFisicoChart, { type StockFisicoDatum } from "@/components/StockFisicoChart";
-import { consumoDiarioKg, diasRestantes, proyectarKilosHoy } from "@/lib/alimentacion";
+import { consumoDiarioKg, diasRestantes, proyectarConPendientes } from "@/lib/alimentacion";
 import { requireRol } from "@/lib/roles";
 import {
   NOMBRES_CATEGORIA,
@@ -78,8 +78,16 @@ export default async function DashboardPage() {
   const supabase = await createClient();
   const hoy = hoyChile();
 
-  const [pedidosHoy, pendientes, stockBajo, ultimosPedidos, itemsReservados, alimentoStock, plantelGallinas] =
-    await Promise.all([
+  const [
+    pedidosHoy,
+    pendientes,
+    stockBajo,
+    ultimosPedidos,
+    itemsReservados,
+    alimentoStock,
+    plantelGallinas,
+    pendientesAlimento,
+  ] = await Promise.all([
     supabase
       .from("pedidos")
       .select("total")
@@ -127,6 +135,17 @@ export default async function DashboardPage() {
     rol === "administrador"
       ? supabase.from("plantel_gallinas").select("cantidad_actual").eq("id", "principal").single()
       : Promise.resolve({ data: null }),
+    // Compras de alimento a futuro que ya maduraron (llegó su fecha) pero
+    // todavía no se asentaron en el checkpoint — se incluyen en el cálculo
+    // igual que en /admin/alimentacion, para que el banner nunca muestre un
+    // número atrasado.
+    rol === "administrador"
+      ? supabase
+          .from("alimento_compras")
+          .select("fecha, kilos")
+          .eq("aplicado", false)
+          .lte("fecha", hoy)
+      : Promise.resolve({ data: [] as { fecha: string; kilos: number }[] }),
   ]);
 
   const totalHoy = (pedidosHoy.data ?? []).reduce((acc, p) => acc + Number(p.total), 0);
@@ -193,7 +212,12 @@ export default async function DashboardPage() {
   let fechaAgotamientoAlimento: string | null = null;
   if (alimentoStock.data) {
     const gallinasActivas = plantelGallinas.data?.cantidad_actual ?? 0;
-    const kilosHoy = proyectarKilosHoy(alimentoStock.data, gallinasActivas, hoy);
+    const kilosHoy = proyectarConPendientes(
+      alimentoStock.data,
+      gallinasActivas,
+      hoy,
+      pendientesAlimento.data ?? []
+    );
     const consumoDiario = consumoDiarioKg(alimentoStock.data.gramos_por_gallina, gallinasActivas);
     diasAlimentoRestantes = diasRestantes(kilosHoy, consumoDiario);
     if (diasAlimentoRestantes !== null) {
