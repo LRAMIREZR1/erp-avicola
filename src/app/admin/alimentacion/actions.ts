@@ -189,6 +189,44 @@ export async function ajustarConsumoAlimento(formData: FormData) {
   redirect("/admin/alimentacion?consumo=1");
 }
 
+// Eliminar un registro de compra — la base de datos solo lo permite a un
+// administrador (regla de seguridad en la tabla). Si la compra ya estaba
+// aplicada al stock, primero asienta la proyección de hoy y le resta los
+// kilos de esa compra (nunca baja de 0); si todavía estaba "programada"
+// (fecha futura, no aplicada), no toca el stock, solo borra el registro.
+export async function eliminarCompraAlimento(id: string) {
+  const supabase = await createClient();
+  const hoy = hoyChile();
+
+  const { data: compra } = await supabase
+    .from("alimento_compras")
+    .select("kilos, aplicado")
+    .eq("id", id)
+    .single();
+
+  if (!compra) return;
+
+  if (compra.aplicado) {
+    const { stock, gallinasActivas } = await obtenerContexto(supabase, hoy);
+    const kilosHoy = proyectarKilosHoy(stock, gallinasActivas, hoy);
+    const nuevoValor = Math.max(0, kilosHoy - Number(compra.kilos));
+
+    await supabase
+      .from("alimento_stock")
+      .update({
+        kilos_actual: nuevoValor,
+        checkpoint_fecha: hoy,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", STOCK_ID);
+  }
+
+  await supabase.from("alimento_compras").delete().eq("id", id);
+
+  revalidatePath("/admin/alimentacion");
+  revalidatePath("/admin");
+}
+
 // Ajuste manual del stock (delta, no valor absoluto) — para mermas,
 // correcciones de conteo, etc. Mismo patrón que "Ajustar plantel" en
 // Mortandad y "Ajustar stock" en Productos.
