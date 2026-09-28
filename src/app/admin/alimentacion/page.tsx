@@ -8,6 +8,7 @@ import {
 } from "@/app/admin/alimentacion/actions";
 import { consumoDiarioKg, diasRestantes, proyectarConPendientes } from "@/lib/alimentacion";
 import StatCard from "@/components/StatCard";
+import EliminarCompraAlimentoButton from "@/components/EliminarCompraAlimentoButton";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,8 @@ export default async function AlimentacionPage({
 }: {
   searchParams: Promise<{ ok?: string; consumo?: string; ajuste?: string }>;
 }) {
-  await requireRol(["administrador", "encargado_bodega"]);
+  const rol = await requireRol(["administrador", "encargado_bodega"]);
+  const esAdmin = rol === "administrador";
   const { ok, consumo, ajuste } = await searchParams;
   const supabase = await createClient();
   const hoy = hoyChile();
@@ -304,6 +306,7 @@ export default async function AlimentacionPage({
                   <th className="pb-2 pr-4 text-right font-medium">Kilos</th>
                   <th className="pb-2 pr-4 text-right font-medium">Costo total</th>
                   <th className="pb-2 font-medium">Notas</th>
+                  {esAdmin && <th className="pb-2"></th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
@@ -330,6 +333,11 @@ export default async function AlimentacionPage({
                       {c.costo_total != null ? formatCLP(c.costo_total) : "—"}
                     </td>
                     <td className="py-2 text-stone-600">{c.notas ?? "—"}</td>
+                    {esAdmin && (
+                      <td className="py-2 pl-4 text-right">
+                        <EliminarCompraAlimentoButton compraId={c.id} />
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
