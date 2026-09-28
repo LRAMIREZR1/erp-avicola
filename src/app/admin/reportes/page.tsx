@@ -62,6 +62,22 @@ function formatCambio(actual: number, anterior: number) {
   };
 }
 
+// Igual que formatCambio, pero con los colores invertidos: un aumento de
+// costos es una mala noticia (rojo), una baja es buena (verde) — al revés
+// que en las ventas.
+function formatCambioCosto(actual: number, anterior: number) {
+  if (anterior <= 0) {
+    return { texto: "Sin costos en el período anterior para comparar", clase: "text-stone-500" };
+  }
+  const cambio = ((actual - anterior) / anterior) * 100;
+  const signo = cambio >= 0 ? "+" : "";
+  const clase = cambio > 0 ? "text-red-600" : cambio < 0 ? "text-green-700" : "text-stone-500";
+  return {
+    texto: `${signo}${cambio.toFixed(1)}% vs. período anterior (${formatCLP(anterior)})`,
+    clase,
+  };
+}
+
 // Detalle de pedidos de un vendedor, para el reporte "Detalle de ventas por
 // vendedor" (resumen + lista expandible de sus pedidos en el período).
 type PedidoDetalleVendedor = {
@@ -155,6 +171,41 @@ export default async function ReportesPage({
     (acc, p) => acc + Math.max(0, Number(p.total) - (abonadoPorPedidoPendiente.get(p.id) ?? 0)),
     0
   );
+
+  // Costos del período (y del período anterior, para poder comparar igual
+  // que con las ventas) — ver módulo Costos.
+  const [{ data: costosPeriodo }, { data: costosAnterior }] = await Promise.all([
+    supabase
+      .from("costos")
+      .select("monto, categorias_costo(nombre)")
+      .gte("fecha", desde)
+      .lte("fecha", hasta),
+    supabase
+      .from("costos")
+      .select("monto")
+      .gte("fecha", anterior.desde)
+      .lte("fecha", anterior.hasta),
+  ]);
+
+  const totalCostosPeriodo = (costosPeriodo ?? []).reduce((acc, c) => acc + Number(c.monto), 0);
+  const totalCostosAnterior = (costosAnterior ?? []).reduce((acc, c) => acc + Number(c.monto), 0);
+  const cambioCostos = formatCambioCosto(totalCostosPeriodo, totalCostosAnterior);
+
+  const porCategoriaCosto = new Map<string, number>();
+  for (const c of costosPeriodo ?? []) {
+    const nombreCategoria =
+      (
+        c as unknown as { categorias_costo: { nombre: string } | null }
+      ).categorias_costo?.nombre ?? "Sin categoría";
+    porCategoriaCosto.set(
+      nombreCategoria,
+      (porCategoriaCosto.get(nombreCategoria) ?? 0) + Number(c.monto)
+    );
+  }
+  const rankingCostos = [...porCategoriaCosto.entries()].sort((a, b) => b[1] - a[1]);
+
+  const margenBruto = totalPeriodo - totalCostosPeriodo;
+  const margenPorcentaje = totalPeriodo > 0 ? (margenBruto / totalPeriodo) * 100 : null;
 
   let totalDescuento = 0;
   const porClienteDescuento = new Map<string, number>();
@@ -363,7 +414,33 @@ export default async function ReportesPage({
         <span className={`font-semibold ${cambio.clase}`}>{cambio.texto}</span>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div>
+        <p className="mb-3 text-sm font-medium text-stone-700">Costos y margen</p>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <StatCard label="Costos del período" value={formatCLP(totalCostosPeriodo)} />
+          <StatCard
+            label="Margen bruto"
+            value={formatCLP(margenBruto)}
+            tone={margenBruto < 0 ? "danger" : "default"}
+            hint="Ventas − costos"
+          />
+          <StatCard
+            label="Margen"
+            value={margenPorcentaje !== null ? `${margenPorcentaje.toFixed(1)}%` : "—"}
+            tone={margenPorcentaje !== null && margenPorcentaje < 0 ? "danger" : "default"}
+            hint={margenPorcentaje === null ? "Sin ventas en el período" : "Sobre el total vendido"}
+          />
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm">
+        <span className="text-stone-500">
+          Costos comparados con el período anterior ({anterior.desde} a {anterior.hasta}):{" "}
+        </span>
+        <span className={`font-semibold ${cambioCostos.clase}`}>{cambioCostos.texto}</span>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="rounded-2xl border border-stone-200 bg-white p-4">
           <p className="mb-3 text-sm font-medium text-stone-700">Por vendedor</p>
           <div className="divide-y divide-stone-100">
@@ -392,6 +469,23 @@ export default async function ReportesPage({
             ))}
             {porProducto.size === 0 && (
               <p className="py-4 text-center text-sm text-stone-400">Sin datos</p>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-stone-200 bg-white p-4">
+          <p className="mb-3 text-sm font-medium text-stone-700">Costos por categoría</p>
+          <div className="divide-y divide-stone-100">
+            {rankingCostos.map(([nombre, monto]) => (
+              <div key={nombre} className="flex items-center justify-between py-2 text-sm">
+                <span className="text-stone-600">{nombre}</span>
+                <span className="font-medium text-stone-800">{formatCLP(monto)}</span>
+              </div>
+            ))}
+            {rankingCostos.length === 0 && (
+              <p className="py-4 text-center text-sm text-stone-400">
+                Sin costos registrados en este período
+              </p>
             )}
           </div>
         </div>
