@@ -103,8 +103,6 @@ export async function registrarCompraAlimento(formData: FormData) {
 
   const kilos = Number(formData.get("kilos"));
   const proveedor = String(formData.get("proveedor") ?? "").trim();
-  const costoTotalRaw = String(formData.get("costo_total") ?? "").trim();
-  const costoTotal = costoTotalRaw ? Number(costoTotalRaw) : null;
   const notas = String(formData.get("notas") ?? "").trim();
   const hoy = hoyChile();
   const fechaInput = String(formData.get("fecha") ?? "").trim();
@@ -126,7 +124,6 @@ export async function registrarCompraAlimento(formData: FormData) {
         fecha,
         proveedor: proveedor || null,
         kilos,
-        costo_total: costoTotal,
         notas: notas || null,
         vendedor_id: user?.id ?? null,
         aplicado: true,
@@ -147,7 +144,6 @@ export async function registrarCompraAlimento(formData: FormData) {
       fecha,
       proveedor: proveedor || null,
       kilos,
-      costo_total: costoTotal,
       notas: notas || null,
       vendedor_id: user?.id ?? null,
       aplicado: false,
