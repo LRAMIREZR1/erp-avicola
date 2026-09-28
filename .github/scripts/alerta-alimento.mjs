@@ -5,6 +5,11 @@
 // manda nada — el aviso "vivo" (banner) ya se ve dentro del sistema cada
 // vez que alguien entra.
 //
+// Antes de calcular, también asienta las compras "programadas" (registradas
+// con una fecha futura, ver src/app/admin/alimentacion/actions.ts) que ya
+// maduraron — para que el checkpoint no quede atrasado indefinidamente si
+// nadie abre el sistema el día justo en que una compra programada llega.
+//
 // Corre desde GitHub Actions (ver .github/workflows/alerta-alimento.yml),
 // usando la service_role key de Supabase (variable SUPABASE_SERVICE_KEY) que
 // salta las reglas de seguridad (RLS) — por eso este script nunca se ejecuta
@@ -50,6 +55,41 @@ async function obtenerGallinasActivas() {
   return filas[0]?.cantidad_actual ?? 0;
 }
 
+// Compras programadas (fecha futura al registrarlas) que ya maduraron —
+// fecha <= hoy y todavía no se asentaron en el checkpoint.
+async function obtenerCompraPendientesMaduras(hoy) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/alimento_compras?select=id,fecha,kilos&aplicado=eq.false&fecha=lte.${hoy}&order=fecha.asc`,
+    { headers: headers() }
+  );
+  if (!res.ok) throw new Error(`Error leyendo alimento_compras: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+async function actualizarStock(kilosActual, checkpointFecha) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/alimento_stock?id=eq.principal`, {
+    method: "PATCH",
+    headers: headers(),
+    body: JSON.stringify({
+      kilos_actual: kilosActual,
+      checkpoint_fecha: checkpointFecha,
+      updated_at: new Date().toISOString(),
+    }),
+  });
+  if (!res.ok) throw new Error(`Error actualizando alimento_stock: ${res.status} ${await res.text()}`);
+}
+
+async function marcarCompraAplicadas(ids) {
+  if (ids.length === 0) return;
+  const listaIds = ids.map((id) => `"${id}"`).join(",");
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/alimento_compras?id=in.(${listaIds})`, {
+    method: "PATCH",
+    headers: headers(),
+    body: JSON.stringify({ aplicado: true }),
+  });
+  if (!res.ok) throw new Error(`Error marcando compras aplicadas: ${res.status} ${await res.text()}`);
+}
+
 // Fecha de "hoy" en hora de Chile, en formato YYYY-MM-DD — mismo criterio
 // que hoyChile() en src/lib/format.ts, para que el cálculo coincida con el
 // que ve la app.
@@ -82,6 +122,29 @@ function proyectarKilosHoy(stock, gallinasActivas, hoy) {
   const dias = diasEntre(stock.checkpoint_fecha, hoy);
   const consumoDiario = (stock.gramos_por_gallina * gallinasActivas) / 1000;
   return Math.max(0, stock.kilos_actual - consumoDiario * dias);
+}
+
+// Asienta (con escritura) las compras programadas que ya maduraron, en
+// orden de fecha, igual que asentarCompraPendientes() en
+// src/app/admin/alimentacion/actions.ts. Devuelve el checkpoint resultante.
+async function asentarCompraPendientes(stock, gallinasActivas, hoy) {
+  const pendientes = await obtenerCompraPendientesMaduras(hoy);
+  if (pendientes.length === 0) return stock;
+
+  let actual = stock;
+  for (const c of pendientes) {
+    const kilosEnFecha = proyectarKilosHoy(actual, gallinasActivas, c.fecha) + Number(c.kilos);
+    actual = { kilos_actual: kilosEnFecha, checkpoint_fecha: c.fecha, gramos_por_gallina: actual.gramos_por_gallina };
+  }
+
+  await actualizarStock(actual.kilos_actual, actual.checkpoint_fecha);
+  await marcarCompraAplicadas(pendientes.map((p) => p.id));
+
+  console.log(
+    `Se asentaron ${pendientes.length} compra(s) programada(s) que ya maduraron.`
+  );
+
+  return actual;
 }
 
 async function enviarCorreo({ diasQueQuedan, kilosHoy, consumoDiario, fechaAgotamiento }) {
@@ -131,7 +194,7 @@ async function enviarCorreo({ diasQueQuedan, kilosHoy, consumoDiario, fechaAgota
 }
 
 async function main() {
-  const stock = await obtenerStockAlimento();
+  let stock = await obtenerStockAlimento();
   if (!stock) {
     console.log("Sin fila de alimento_stock todavía — nada que revisar.");
     return;
@@ -139,6 +202,9 @@ async function main() {
 
   const gallinasActivas = await obtenerGallinasActivas();
   const hoy = hoyChile();
+
+  stock = await asentarCompraPendientes(stock, gallinasActivas, hoy);
+
   const kilosHoy = proyectarKilosHoy(stock, gallinasActivas, hoy);
   const consumoDiario = (stock.gramos_por_gallina * gallinasActivas) / 1000;
 
