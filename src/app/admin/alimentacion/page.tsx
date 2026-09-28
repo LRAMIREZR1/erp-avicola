@@ -6,7 +6,7 @@ import {
   ajustarConsumoAlimento,
   ajustarStockAlimento,
 } from "@/app/admin/alimentacion/actions";
-import { consumoDiarioKg, diasRestantes, proyectarKilosHoy } from "@/lib/alimentacion";
+import { consumoDiarioKg, diasRestantes, proyectarConPendientes } from "@/lib/alimentacion";
 import StatCard from "@/components/StatCard";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +18,7 @@ interface CompraEntry {
   kilos: number;
   costo_total: number | null;
   notas: string | null;
+  aplicado: boolean;
 }
 
 export default async function AlimentacionPage({
@@ -39,7 +40,7 @@ export default async function AlimentacionPage({
     supabase.from("plantel_gallinas").select("cantidad_actual").eq("id", "principal").single(),
     supabase
       .from("alimento_compras")
-      .select("id, fecha, proveedor, kilos, costo_total, notas")
+      .select("id, fecha, proveedor, kilos, costo_total, notas, aplicado")
       .order("fecha", { ascending: false })
       .order("created_at", { ascending: false }),
   ]);
@@ -52,7 +53,16 @@ export default async function AlimentacionPage({
   const gallinasActivas = plantel?.cantidad_actual ?? 0;
   const lista = (compras ?? []) as CompraEntry[];
 
-  const kilosHoy = proyectarKilosHoy(stock, gallinasActivas, hoy);
+  // Compras a futuro que ya maduraron (llegó su fecha) pero todavía no se
+  // asentaron en el checkpoint — puede pasar si nadie hizo ninguna acción
+  // en el sistema desde que maduraron. Se incluyen igual en el cálculo de
+  // hoy (sin escribir nada acá — eso lo hace la próxima acción, o el
+  // script diario) para que el número mostrado sea siempre el correcto.
+  const pendientesMaduras = lista
+    .filter((c) => !c.aplicado && c.fecha <= hoy)
+    .map((c) => ({ fecha: c.fecha, kilos: c.kilos }));
+
+  const kilosHoy = proyectarConPendientes(stock, gallinasActivas, hoy, pendientesMaduras);
   const consumoDiario = consumoDiarioKg(stock.gramos_por_gallina, gallinasActivas);
   const diasQueQuedan = diasRestantes(kilosHoy, consumoDiario);
   const fechaAgotamiento =
@@ -129,7 +139,11 @@ export default async function AlimentacionPage({
       </div>
 
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-stone-700">Registrar compra de alimento</h2>
+        <h2 className="text-sm font-semibold text-stone-700">Registrar compra de alimento</h2>
+        <p className="mb-3 text-xs text-stone-400">
+          Si eliges una fecha futura (ej: la compras mañana pero la anotas hoy), queda programada
+          y no se resta del cálculo de días restantes hasta que llegue esa fecha.
+        </p>
         <form
           action={registrarCompraAlimento}
           className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
@@ -147,6 +161,19 @@ export default async function AlimentacionPage({
               placeholder="0"
               required
               className="w-36 rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label htmlFor="fecha" className="mb-1 block text-sm font-medium text-stone-800">
+              Fecha
+            </label>
+            <input
+              id="fecha"
+              type="date"
+              name="fecha"
+              defaultValue={hoy}
+              required
+              className="w-40 rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
             />
           </div>
           <div className="sm:flex-1">
@@ -284,7 +311,12 @@ export default async function AlimentacionPage({
                   <tr key={c.id}>
                     <td className="py-2 pr-4 text-stone-700">
                       {formatFecha(c.fecha)}
-                      {c.fecha === hoy && (
+                      {!c.aplicado && (
+                        <span className="ml-2 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700">
+                          Programada
+                        </span>
+                      )}
+                      {c.aplicado && c.fecha === hoy && (
                         <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
                           Hoy
                         </span>
