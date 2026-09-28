@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { formatCLP, hoyChile } from "@/lib/format";
+import { formatCLP, formatFecha, hoyChile, sumarDias } from "@/lib/format";
 import StatCard from "@/components/StatCard";
 import { type StockChartDatum } from "@/components/StockChart";
 import StockChartSimple, { type StockChartSimpleDatum } from "@/components/StockChartSimple";
 import StockFisicoChart, { type StockFisicoDatum } from "@/components/StockFisicoChart";
+import { consumoDiarioKg, diasRestantes, proyectarKilosHoy } from "@/lib/alimentacion";
 import { requireRol } from "@/lib/roles";
 import {
   NOMBRES_CATEGORIA,
@@ -77,7 +78,8 @@ export default async function DashboardPage() {
   const supabase = await createClient();
   const hoy = hoyChile();
 
-  const [pedidosHoy, pendientes, stockBajo, ultimosPedidos, itemsReservados] = await Promise.all([
+  const [pedidosHoy, pendientes, stockBajo, ultimosPedidos, itemsReservados, alimentoStock, plantelGallinas] =
+    await Promise.all([
     supabase
       .from("pedidos")
       .select("total")
@@ -112,6 +114,19 @@ export default async function DashboardPage() {
           .select("cantidad, productos(categoria, formato), pedidos!inner(estado)")
           .in("pedidos.estado", ["confirmado", "en_preparacion"])
       : Promise.resolve({ data: [] as { cantidad: number; productos: unknown }[] }),
+    // El banner de alimento por agotarse solo se muestra al administrador
+    // (igual que el stock físico) — el vendedor no tiene acceso a la sección
+    // de Alimentación.
+    rol === "administrador"
+      ? supabase
+          .from("alimento_stock")
+          .select("kilos_actual, checkpoint_fecha, gramos_por_gallina")
+          .eq("id", "principal")
+          .single()
+      : Promise.resolve({ data: null }),
+    rol === "administrador"
+      ? supabase.from("plantel_gallinas").select("cantidad_actual").eq("id", "principal").single()
+      : Promise.resolve({ data: null }),
   ]);
 
   const totalHoy = (pedidosHoy.data ?? []).reduce((acc, p) => acc + Number(p.total), 0);
@@ -172,6 +187,21 @@ export default async function DashboardPage() {
     reservadoPorCategoria.set(nombreCategoria, actual);
   }
 
+  // Proyección de alimento (mismo cálculo que /admin/alimentacion) — solo se
+  // computa para el administrador, que es quien recibe este banner.
+  let diasAlimentoRestantes: number | null = null;
+  let fechaAgotamientoAlimento: string | null = null;
+  if (alimentoStock.data) {
+    const gallinasActivas = plantelGallinas.data?.cantidad_actual ?? 0;
+    const kilosHoy = proyectarKilosHoy(alimentoStock.data, gallinasActivas, hoy);
+    const consumoDiario = consumoDiarioKg(alimentoStock.data.gramos_por_gallina, gallinasActivas);
+    diasAlimentoRestantes = diasRestantes(kilosHoy, consumoDiario);
+    if (diasAlimentoRestantes !== null) {
+      fechaAgotamientoAlimento = sumarDias(hoy, diasAlimentoRestantes);
+    }
+  }
+  const alertaAlimento = diasAlimentoRestantes !== null && diasAlimentoRestantes <= 7;
+
   const datosGraficoFisico: StockFisicoDatum[] = datosGrafico.map((d) => {
     const reservado = reservadoPorCategoria.get(d.categoria) ?? { bandejas: 0, cajas: 0 };
     return {
@@ -204,6 +234,30 @@ export default async function DashboardPage() {
           hint={productosStockBajo.length > 0 ? "Revisar stock" : "Todo en orden"}
         />
       </div>
+
+      {alertaAlimento && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-medium text-amber-800">
+                {diasAlimentoRestantes === 0
+                  ? "El alimento se acaba hoy"
+                  : `Quedan ${diasAlimentoRestantes} día${diasAlimentoRestantes === 1 ? "" : "s"} de alimento`}
+              </p>
+              <p className="mt-0.5 text-xs text-amber-700">
+                {fechaAgotamientoAlimento &&
+                  `Se agotaría el ${formatFecha(fechaAgotamientoAlimento)} — conviene solicitar la compra.`}
+              </p>
+            </div>
+            <Link
+              href="/admin/alimentacion"
+              className="text-sm font-medium text-amber-800 hover:underline"
+            >
+              Ir a Alimentación
+            </Link>
+          </div>
+        </div>
+      )}
 
       {productosStockBajo.length > 0 && (
         <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4">
