@@ -53,3 +53,40 @@ export function diasRestantes(kilosHoy: number, consumoDiario: number): number |
   if (consumoDiario <= 0) return null;
   return Math.floor(kilosHoy / consumoDiario);
 }
+
+export interface CompraPendienteInput {
+  fecha: string; // YYYY-MM-DD
+  kilos: number;
+}
+
+// Compras a futuro (fecha posterior a hoy en el momento en que se
+// registraron) no se suman al stock de inmediato — quedan "pendientes"
+// (alimento_compras.aplicado = false) hasta que esa fecha llega. Esta
+// función aplica en memoria, SIN escribir nada, las que ya maduraron
+// (fecha <= hoy) sobre un checkpoint base, en orden de fecha — para que la
+// proyección de lectura (la página, el banner del Resumen) sea correcta
+// aunque todavía no se haya "asentado" esa compra en la base de datos
+// (eso lo hace asentarCompraPendientes, en
+// src/app/admin/alimentacion/actions.ts, con el mismo cálculo).
+// `pendientesMaduras` debe venir ya filtrada a aplicado = false y
+// fecha <= hoy.
+export function proyectarConPendientes(
+  stock: AlimentoStockRow,
+  gallinasActivas: number,
+  hoy: string,
+  pendientesMaduras: CompraPendienteInput[]
+): number {
+  let actual = stock;
+  const ordenadas = [...pendientesMaduras].sort((a, b) =>
+    a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0
+  );
+  for (const c of ordenadas) {
+    const kilosEnFecha = proyectarKilosHoy(actual, gallinasActivas, c.fecha) + c.kilos;
+    actual = {
+      kilos_actual: kilosEnFecha,
+      checkpoint_fecha: c.fecha,
+      gramos_por_gallina: actual.gramos_por_gallina,
+    };
+  }
+  return proyectarKilosHoy(actual, gallinasActivas, hoy);
+}
