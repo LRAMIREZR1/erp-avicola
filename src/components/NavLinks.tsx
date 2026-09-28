@@ -107,6 +107,7 @@ const SECCIONES: NavSeccion[] = [
     tituloColor: "text-slate-700",
     links: [
       { href: "/admin/reportes", label: "Reportes", roles: ["administrador"] },
+      { href: "/admin/costos", label: "Costos", roles: ["administrador"] },
       { href: "/admin/usuarios", label: "Usuarios", roles: ["administrador"] },
     ],
   },
