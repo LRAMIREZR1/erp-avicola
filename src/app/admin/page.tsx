@@ -2,7 +2,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatCLP, hoyChile } from "@/lib/format";
 import StatCard from "@/components/StatCard";
-import StockChart, { type StockChartDatum } from "@/components/StockChart";
+import { type StockChartDatum } from "@/components/StockChart";
+import StockChartSimple, { type StockChartSimpleDatum } from "@/components/StockChartSimple";
 import StockFisicoChart, { type StockFisicoDatum } from "@/components/StockFisicoChart";
 import { requireRol } from "@/lib/roles";
 import {
@@ -140,6 +141,18 @@ export default async function DashboardPage() {
   }
   const datosGrafico = [...stockPorCategoria.values()];
 
+  // Mismos datos que datosGrafico, separados en dos series de un solo valor
+  // para los dos gráficos lado a lado (cajas / bandejas) en vez de barras
+  // agrupadas en un solo gráfico.
+  const datosGraficoCajas: StockChartSimpleDatum[] = datosGrafico.map((d) => ({
+    categoria: d.categoria,
+    valor: d.cajas,
+  }));
+  const datosGraficoBandejas: StockChartSimpleDatum[] = datosGrafico.map((d) => ({
+    categoria: d.categoria,
+    valor: d.bandejas,
+  }));
+
   // Reservado = comprometido en pedidos confirmados/en preparación que aún
   // no llegan a "entregado". Se agrupa igual que el disponible, por
   // categoría y formato, para poder sumarlos en el gráfico de stock físico.
@@ -210,7 +223,10 @@ export default async function DashboardPage() {
           </Link>
         </div>
         {datosGrafico.length > 0 ? (
-          <StockChart data={datosGrafico} />
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <StockChartSimple data={datosGraficoCajas} color="#eb6834" etiqueta="Cajas" />
+            <StockChartSimple data={datosGraficoBandejas} color="#2a78d6" etiqueta="Bandejas" />
+          </div>
         ) : (
           <p className="py-4 text-center text-sm text-stone-400">Aún no hay productos</p>
         )}
