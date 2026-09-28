@@ -9,6 +9,7 @@ import {
 import { consumoDiarioKg, diasRestantes, proyectarConPendientes } from "@/lib/alimentacion";
 import StatCard from "@/components/StatCard";
 import EliminarCompraAlimentoButton from "@/components/EliminarCompraAlimentoButton";
+import BotonEnviar from "@/components/BotonEnviar";
 
 export const dynamic = "force-dynamic";
 
@@ -215,12 +216,12 @@ export default async function AlimentacionPage({
               className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
             />
           </div>
-          <button
-            type="submit"
-            className="rounded-lg bg-amber-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-amber-800"
+          <BotonEnviar
+            pendingLabel="Registrando..."
+            className="rounded-lg bg-amber-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-amber-800 disabled:opacity-50"
           >
             Registrar
-          </button>
+          </BotonEnviar>
         </form>
       </div>
 
@@ -240,6 +241,7 @@ export default async function AlimentacionPage({
                 Gramos por gallina
               </label>
               <input
+                key={stock.gramos_por_gallina}
                 id="gramos_por_gallina"
                 type="number"
                 name="gramos_por_gallina"
@@ -250,12 +252,12 @@ export default async function AlimentacionPage({
                 className="w-32 rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
               />
             </div>
-            <button
-              type="submit"
-              className="rounded-lg border border-stone-300 px-4 py-2.5 text-sm font-medium text-stone-700 hover:bg-stone-100"
+            <BotonEnviar
+              pendingLabel="Guardando..."
+              className="rounded-lg border border-stone-300 px-4 py-2.5 text-sm font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-50"
             >
               Guardar
-            </button>
+            </BotonEnviar>
           </form>
         </div>
 
@@ -280,12 +282,12 @@ export default async function AlimentacionPage({
                 className="w-32 rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
               />
             </div>
-            <button
-              type="submit"
-              className="rounded-lg border border-stone-300 px-4 py-2.5 text-sm font-medium text-stone-700 hover:bg-stone-100"
+            <BotonEnviar
+              pendingLabel="Ajustando..."
+              className="rounded-lg border border-stone-300 px-4 py-2.5 text-sm font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-50"
             >
               Ajustar
-            </button>
+            </BotonEnviar>
           </form>
         </div>
       </div>
