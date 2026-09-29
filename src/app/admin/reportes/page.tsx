@@ -19,6 +19,16 @@ const CATEGORIAS_ORDENADAS = (Object.keys(ORDEN_CATEGORIA) as Categoria[]).sort(
   (a, b) => ORDEN_CATEGORIA[a] - ORDEN_CATEGORIA[b]
 );
 
+// Cuántos huevos trae cada formato — para convertir "cajas/bandejas vendidas"
+// en "huevos vendidos" y así poder sacar el precio promedio por huevo.
+const HUEVOS_POR_FORMATO: Record<Formato, number> = {
+  bandeja_20: 20,
+  bandeja_30: 30,
+  caja_100: 100,
+  caja_120: 120,
+  caja_180: 180,
+};
+
 function primerDiaDelMes() {
   const d = new Date();
   return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
@@ -206,6 +216,18 @@ export default async function ReportesPage({
 
   const margenBruto = totalPeriodo - totalCostosPeriodo;
   const margenPorcentaje = totalPeriodo > 0 ? (margenBruto / totalPeriodo) * 100 : null;
+
+  // Huevos vendidos = cada línea vendida (cantidad de cajas/bandejas) convertida
+  // a huevos según su formato, y sumada. El precio promedio por huevo es el
+  // total vendido del período dividido por esa cantidad.
+  let totalHuevos = 0;
+  for (const item of itemsVendidos ?? []) {
+    const formato = (item as unknown as { productos: { formato: Formato } | null }).productos
+      ?.formato;
+    if (!formato) continue;
+    totalHuevos += item.cantidad * HUEVOS_POR_FORMATO[formato];
+  }
+  const precioPromedioHuevo = totalHuevos > 0 ? totalPeriodo / totalHuevos : null;
 
   let totalDescuento = 0;
   const porClienteDescuento = new Map<string, number>();
@@ -403,6 +425,21 @@ export default async function ReportesPage({
             totalPeriodo > 0
               ? `${((totalDescuento / (totalPeriodo + totalDescuento)) * 100).toFixed(1)}% del valor de lista`
               : "Sin ventas en el período"
+          }
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <StatCard
+          label="Huevos vendidos"
+          value={totalHuevos.toLocaleString("es-CL")}
+          hint={`${desde} a ${hasta}`}
+        />
+        <StatCard
+          label="Precio promedio por huevo"
+          value={precioPromedioHuevo !== null ? formatCLP(precioPromedioHuevo) : "—"}
+          hint={
+            precioPromedioHuevo !== null ? "Total vendido ÷ huevos vendidos" : "Sin ventas en el período"
           }
         />
       </div>
