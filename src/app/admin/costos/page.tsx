@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatCLP, formatFecha, hoyChile } from "@/lib/format";
 import { requireRol } from "@/lib/roles";
@@ -36,6 +37,7 @@ export default async function CostosPage({
 }: {
   searchParams: Promise<{
     ok?: string;
+    editOk?: string;
     catOk?: string;
     errorCategoria?: string;
     desde?: string;
@@ -43,7 +45,14 @@ export default async function CostosPage({
   }>;
 }) {
   await requireRol(["administrador"]);
-  const { ok, catOk, errorCategoria, desde: desdeParam, hasta: hastaParam } = await searchParams;
+  const {
+    ok,
+    editOk,
+    catOk,
+    errorCategoria,
+    desde: desdeParam,
+    hasta: hastaParam,
+  } = await searchParams;
   const supabase = await createClient();
   const hoy = hoyChile();
   const desde = desdeParam || primerDiaDelMes(hoy);
@@ -86,6 +95,11 @@ export default async function CostosPage({
       {ok === "1" && (
         <div className="rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
           Costo registrado.
+        </div>
+      )}
+      {editOk === "1" && (
+        <div className="rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
+          Costo actualizado.
         </div>
       )}
       {catOk === "1" && (
@@ -311,7 +325,15 @@ export default async function CostosPage({
                     </td>
                     <td className="py-2 text-stone-600">{c.notas ?? "—"}</td>
                     <td className="py-2 pl-4 text-right">
-                      <EliminarCostoButton costoId={c.id} />
+                      <div className="flex items-center justify-end gap-3">
+                        <Link
+                          href={`/admin/costos/${c.id}/editar`}
+                          className="text-xs font-medium text-stone-600 hover:underline"
+                        >
+                          Editar
+                        </Link>
+                        <EliminarCostoButton costoId={c.id} />
+                      </div>
                     </td>
                   </tr>
                 ))}
