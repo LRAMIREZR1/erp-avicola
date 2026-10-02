@@ -39,6 +39,39 @@ export async function registrarCosto(formData: FormData) {
   redirect("/admin/costos?ok=1");
 }
 
+// Editar un registro de costo ya existente. A diferencia de las compras de
+// alimento, un costo no mueve stock ni ningún otro saldo — es solo un
+// registro de gasto — así que editarlo es un simple update, sin tener que
+// "revertir" ni reasentar nada.
+export async function editarCosto(id: string, formData: FormData) {
+  const supabase = await createClient();
+
+  const fecha = String(formData.get("fecha") ?? "").trim();
+  const categoriaId = String(formData.get("categoria_id") ?? "").trim();
+  const monto = Number(formData.get("monto"));
+  const proveedor = String(formData.get("proveedor") ?? "").trim();
+  const notas = String(formData.get("notas") ?? "").trim();
+
+  if (!fecha || !categoriaId || !monto || monto <= 0) {
+    redirect(`/admin/costos/${id}/editar`);
+  }
+
+  await supabase
+    .from("costos")
+    .update({
+      fecha,
+      categoria_id: categoriaId,
+      monto,
+      proveedor: proveedor || null,
+      notas: notas || null,
+    })
+    .eq("id", id);
+
+  revalidatePath("/admin/costos");
+  revalidatePath("/admin/reportes");
+  redirect("/admin/costos?editOk=1");
+}
+
 // Eliminar un registro de costo — sin restricciones más allá del rol (la
 // base de datos ya solo deja tocar esta tabla a un administrador). No hay
 // "reversa" de stock que hacer, a diferencia de las compras de alimento:
