@@ -214,6 +214,12 @@ export default async function CobranzasPage({
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <Link
+                        href={`/admin/pedidos/${p.id}`}
+                        className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700 hover:bg-stone-200"
+                      >
+                        Ver pedido
+                      </Link>
                       {!p.pagado && (
                         <Link
                           href={`/admin/pedidos/${p.id}#cobro`}
