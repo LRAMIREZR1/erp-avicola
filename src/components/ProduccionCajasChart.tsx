@@ -9,10 +9,10 @@ export interface ProduccionCajasDatum {
   etiqueta: string;
   caja120: number;
   caja180: number;
-  // Total de huevos del día (recolectados + rotos), aparte de las
-  // cajas/bandejas ya envasadas. 0 significa "no se registró ese día", no
-  // "cero producción" — así que esos días quedan como hueco en la línea, no
-  // como una caída a cero.
+  // Total de huevos del día (el total recolectado, que ya incluye los
+  // rotos), aparte de las cajas/bandejas ya envasadas. 0 significa "no se
+  // registró ese día", no "cero producción" — así que esos días quedan
+  // como hueco en la línea, no como una caída a cero.
   totalHuevos: number;
 }
 
@@ -48,9 +48,9 @@ interface HoverInfo {
 // más claro, arriba) = total de cajas producidas ese día. Una línea punteada
 // gris marca el promedio del período (misma escala que las barras). Otra
 // línea punteada, índigo y con su propio eje a la derecha, traza el total
-// de huevos del día (recolectados + rotos) — va en un eje aparte porque la
-// magnitud (cientos/miles de huevos) no tiene nada que ver con la cantidad
-// de cajas.
+// de huevos del día (el total recolectado, que ya incluye los rotos) — va
+// en un eje aparte porque la magnitud (cientos/miles de huevos) no tiene
+// nada que ver con la cantidad de cajas.
 export default function ProduccionCajasChart({ data }: { data: ProduccionCajasDatum[] }) {
   const [hover, setHover] = useState<HoverInfo | null>(null);
 
