@@ -177,17 +177,18 @@ export default async function ProduccionPage({
       etiqueta: etiquetaDiaCorta(diaVentana),
       caja120: valores.caja120,
       caja180: valores.caja180,
-      // Total del día = recolectados + rotos (mismo cálculo que la tarjeta
-      // "Total del día" y la columna de la tabla de abajo).
-      totalHuevos: (huevosPorDia.get(diaVentana) ?? 0) + (mermaPorDia.get(diaVentana) ?? 0),
+      // Total del día = lo que se ingresó como "huevos recolectados" (ese
+      // número YA es el total del día, los rotos van incluidos adentro — no
+      // se le vuelve a sumar la merma, sería contarla dos veces).
+      totalHuevos: huevosPorDia.get(diaVentana) ?? 0,
     };
   });
 
-  // Total del día (recolectados + rotos) para una fecha cualquiera — se usa
-  // tanto en la columna "Total del día" de la tabla como para calcular la
-  // diferencia contra el día anterior.
+  // Total del día para una fecha cualquiera (el total recolectado, que ya
+  // incluye los rotos) — se usa tanto en la columna "Total del día" de la
+  // tabla como para calcular la diferencia contra el día anterior.
   function totalDelDiaFn(diaConsultado: string) {
-    return (huevosPorDia.get(diaConsultado) ?? 0) + (mermaPorDia.get(diaConsultado) ?? 0);
+    return huevosPorDia.get(diaConsultado) ?? 0;
   }
 
   // Solo se muestran los 14 días de la ventana consultada como filas.
@@ -200,17 +201,18 @@ export default async function ProduccionPage({
   const totalDia = totalPorDia.get(fecha) ?? 0;
   const mermaDia = mermaPorDia.get(fecha) ?? 0;
   const huevosDia = huevosPorDia.get(fecha) ?? 0;
-  // Total de huevos manejados el día consultado (recolectados + rotos) — la
-  // vista general del día, aparte de las cajas ya envasadas.
-  const totalHuevosDia = huevosDia + mermaDia;
+  // Total de huevos del día consultado: es directamente lo que se ingresó
+  // como "huevos recolectados" (ese número ya incluye los rotos, no se le
+  // suma la merma de nuevo).
+  const totalHuevosDia = huevosDia;
   // Huevos disponibles para la venta: el total del día menos los huevos
   // rotos, que no salen al mercado.
   const huevosDisponiblesDia = totalHuevosDia - mermaDia;
   const gallinasInicioDeDia = gallinasPorDia.get(fecha) ?? gallinasActivas;
 
-  // % de postura = huevos puestos ese día (recolectados + rotos) / gallinas
-  // que había al comenzar el día — el indicador estándar del rubro. Sin
-  // plantel cargado no se puede calcular.
+  // % de postura = huevos puestos ese día (el total recolectado, que ya
+  // incluye los rotos) / gallinas que había al comenzar el día — el
+  // indicador estándar del rubro. Sin plantel cargado no se puede calcular.
   const porcentajePostura =
     gallinasInicioDeDia > 0 ? (totalHuevosDia / gallinasInicioDeDia) * 100 : null;
 
@@ -293,7 +295,7 @@ export default async function ProduccionPage({
         <StatCard
           label="Total del día"
           value={`${totalHuevosDia}`}
-          hint="recolectados + rotos"
+          hint="total de huevos recolectados"
         />
         <StatCard
           label="% de postura"
