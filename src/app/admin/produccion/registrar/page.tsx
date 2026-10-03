@@ -2,8 +2,10 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireRol } from "@/lib/roles";
 import { registrarProduccion } from "@/app/admin/produccion/actions";
-import { hoyChile } from "@/lib/format";
+import { formatFecha, hoyChile, sumarDias } from "@/lib/format";
 import BotonRegistrarProduccion from "@/components/BotonRegistrarProduccion";
+import EliminarRecoleccionButton from "@/components/EliminarRecoleccionButton";
+import EliminarMermaButton from "@/components/EliminarMermaButton";
 import {
   NOMBRES_CATEGORIA,
   NOMBRES_FORMATO,
@@ -12,6 +14,18 @@ import {
   type Formato,
   type Producto,
 } from "@/lib/supabase/types";
+
+// Una fila del historial editable de abajo: puede ser un registro de
+// recolección o uno de merma — se juntan en una sola lista ordenada por
+// fecha para que el administrador vea todo lo cargado y pueda borrar el
+// registro equivocado.
+interface FilaHistorial {
+  id: string;
+  fecha: string;
+  cantidad: number;
+  created_at: string;
+  tipo: "recoleccion" | "merma";
+}
 
 export const dynamic = "force-dynamic";
 
@@ -107,6 +121,33 @@ export default async function RegistrarProduccionPage({
   });
   const bandejas = todos.filter((p) => esBandeja(p.formato as Formato));
   const cajas = todos.filter((p) => !esBandeja(p.formato as Formato));
+
+  // Historial editable de los últimos 14 días, solo para administrador (es
+  // quien puede borrar, según la base de datos) — así se puede corregir un
+  // número mal ingresado: se borra el registro equivocado acá y se vuelve a
+  // registrar la cantidad correcta arriba, para la misma fecha.
+  let historial: FilaHistorial[] = [];
+  if (rol === "administrador") {
+    const inicioHistorial = sumarDias(hoy, -13);
+    const [{ data: recoleccionData }, { data: mermaData }] = await Promise.all([
+      supabase
+        .from("recoleccion_huevos")
+        .select("id, fecha, cantidad, created_at")
+        .gte("fecha", inicioHistorial)
+        .lte("fecha", hoy),
+      supabase
+        .from("mermas_produccion")
+        .select("id, fecha, cantidad, created_at")
+        .gte("fecha", inicioHistorial)
+        .lte("fecha", hoy),
+    ]);
+    historial = [
+      ...(recoleccionData ?? []).map((r) => ({ ...r, tipo: "recoleccion" as const })),
+      ...(mermaData ?? []).map((m) => ({ ...m, tipo: "merma" as const })),
+    ].sort(
+      (a, b) => b.fecha.localeCompare(a.fecha) || b.created_at.localeCompare(a.created_at)
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -214,10 +255,50 @@ export default async function RegistrarProduccionPage({
         <BotonRegistrarProduccion />
         <p className="text-xs text-stone-400">
           Deja en blanco (o en 0) lo que hoy no tuvo movimiento. Si te equivocaste en una cantidad
-          ya registrada, corrígelo con &quot;Ajustar stock&quot; en Productos y stock (para
-          producción) o pide a un administrador que revise el historial (para mermas).
+          de bandejas/cajas ya registrada, corrígelo con &quot;Ajustar stock&quot; en Productos y
+          stock. Si te equivocaste en el total recolectado o en los huevos rotos, bórralo en el
+          historial de abajo y vuelve a registrar la cantidad correcta para esa fecha.
         </p>
       </form>
+
+      {rol === "administrador" && (
+        <div className="rounded-2xl border border-stone-200 bg-white p-4">
+          <h2 className="mb-1 text-sm font-semibold text-stone-700">
+            Historial de recolección y mermas
+          </h2>
+          <p className="mb-3 text-xs text-stone-400">
+            Últimos 14 días. Si una cantidad quedó mal, bórrala acá y vuelve a registrarla arriba
+            para la misma fecha — no se puede editar directamente, solo borrar y volver a cargar.
+          </p>
+          {historial.length === 0 ? (
+            <p className="py-4 text-center text-sm text-stone-400">
+              Sin registros de recolección ni mermas en los últimos 14 días
+            </p>
+          ) : (
+            <div className="divide-y divide-stone-100">
+              {historial.map((fila) => (
+                <div key={fila.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <div>
+                    <span className="text-stone-700">{formatFecha(fila.fecha)}</span>
+                    <span className="text-stone-400"> · </span>
+                    <span className={fila.tipo === "merma" ? "text-red-600" : "text-stone-600"}>
+                      {fila.tipo === "merma" ? "Huevos rotos" : "Huevos recolectados"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="font-semibold text-stone-800">{fila.cantidad}</span>
+                    {fila.tipo === "merma" ? (
+                      <EliminarMermaButton id={fila.id} />
+                    ) : (
+                      <EliminarRecoleccionButton id={fila.id} />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
