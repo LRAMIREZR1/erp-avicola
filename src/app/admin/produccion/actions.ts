@@ -152,3 +152,25 @@ export async function registrarProduccion(formData: FormData) {
   revalidatePath("/admin");
   redirect("/admin/produccion/registrar?ok=1");
 }
+
+// Eliminar un registro de recolección de huevos (un día puede tener varios,
+// si se cargó más de una vez). Solo un administrador puede borrar (ver RLS
+// en la migración de recoleccion_huevos) — es la forma de corregir un
+// número mal ingresado: se borra el registro equivocado y se vuelve a
+// registrar la cantidad correcta para esa fecha.
+export async function eliminarRecoleccion(id: string) {
+  const supabase = await createClient();
+  await supabase.from("recoleccion_huevos").delete().eq("id", id);
+  revalidatePath("/admin/produccion");
+  revalidatePath("/admin/produccion/registrar");
+}
+
+// Eliminar un registro de merma (huevos rotos). Mismo criterio que
+// eliminarRecoleccion: solo administrador, y es la forma de corregir un
+// número mal ingresado.
+export async function eliminarMerma(id: string) {
+  const supabase = await createClient();
+  await supabase.from("mermas_produccion").delete().eq("id", id);
+  revalidatePath("/admin/produccion");
+  revalidatePath("/admin/produccion/registrar");
+}
